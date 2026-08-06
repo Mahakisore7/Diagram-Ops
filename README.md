@@ -8,6 +8,10 @@ The application is intentionally small: paste text, generate Mermaid syntax with
 
 Diagram-Ops is designed for learning DevOps and cloud engineering without getting lost in application complexity. Instead of building a huge product, the app stays useful and understandable while the infrastructure grows phase by phase into something close to an industry deployment workflow.
 
+## Start Here
+
+New to the project (or to any of the tooling)? Read **[docs/project-overview.md](docs/project-overview.md)** first — it explains what every tool is for, in plain language with examples, plus what the whole thing costs to run. The phase files tell you *what to type*; the overview tells you *what it means*.
+
 ## Phase Roadmap
 
 | Phase | Focus | Main Learning Outcome |
