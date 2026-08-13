@@ -42,7 +42,17 @@ The phase files tell you *what to type*; the three documents above tell you *wha
 
 ## Current Status
 
-The repository currently contains the phase-by-phase implementation plan. The next practical step is Phase 1: scaffold the minimal app and prove it works locally before adding cloud infrastructure.
+**Phase 1 is complete.** The application — React frontend, Express backend, MongoDB, JWT auth, multi-provider LLM generation with fallback and a daily cost cap — is built, tested (46 Jest tests + a real-browser Playwright verification), containerized, and running as a three-tier stack via Docker Compose. The next practical step is Phase 2: standing up the Jenkins infrastructure with Terraform.
+
+Run it locally:
+
+```bash
+cd application
+cp .env.example .env   # add real GROQ_API_KEY / ANTHROPIC_API_KEY if you have them
+docker compose up --build
+```
+
+Frontend at `http://localhost:5173`, backend directly at `http://localhost:5000` (dev convenience only — the frontend's nginx `/api` proxy is the real path, see [ADR-0007](docs/adr/0007-nginx-api-proxy.md)).
 
 ## Guiding Principle
 
