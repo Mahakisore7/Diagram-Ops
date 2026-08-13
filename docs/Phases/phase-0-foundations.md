@@ -1,5 +1,5 @@
 # Phase 0 — Foundations: Repo Structure, Git Strategy & Prerequisites
-### Three-Tier DevSecOps Platform on AWS EKS
+### Diagram-Ops — A Three-Tier DevSecOps Platform on AWS EKS
 
 ---
 
@@ -35,7 +35,7 @@ graph TB
 We're using **one monorepo** for learning clarity (a real production setup would often split the GitOps config into its own repo — noted as a deliberate simplification below, not an oversight).
 
 ```
-three-tier-devsecops-platform/
+Diagram-Ops/
 ├── .github/
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   ├── ISSUE_TEMPLATE/
@@ -87,8 +87,11 @@ three-tier-devsecops-platform/
 │       ├── values.yaml
 │       └── dashboards/
 ├── docs/
-│   ├── phases/                    # every phase MD file lives here
-│   └── architecture-diagram.png
+│   ├── Phases/                    # every phase MD file lives here
+│   ├── project-overview.md        # what the tools are and why
+│   ├── functional-spec.md         # requirements, use cases, API contract
+│   ├── system-design.md           # ER + UML diagrams, architecture
+│   └── adr/                       # architecture decision records
 ├── .gitignore
 ├── LICENSE
 └── README.md
@@ -166,49 +169,18 @@ Even solo, opening a real PR against yourself and filling this out is worth doin
 
 ```
 # .github/CODEOWNERS
-* @your-github-username
-/infrastructure/ @your-github-username
-/gitops/ @your-github-username
+* @Mahakisore7
+/infrastructure/ @Mahakisore7
+/gitops/ @Mahakisore7
 ```
 
 Solo now, but this is exactly the file that matters the moment a second contributor shows up — worth having from day one.
 
-### .gitignore (comprehensive for this stack)
+### .gitignore
 
-```gitignore
-# Terraform
-**/.terraform/*
-*.tfstate
-*.tfstate.*
-*.tfvars
-!*.tfvars.example
-.terraform.lock.hcl
+The repo's `.gitignore` is already written and is more thorough than a minimal starter block — it covers secrets/keys, Node/Vite, Docker overrides, Terraform, Kubernetes/Helm, Jenkins/scan reports, DB dumps, logs, and editor/OS noise. Treat it as authoritative; don't replace it with a shorter version.
 
-# Node
-node_modules/
-npm-debug.log*
-.env
-.env.local
-
-# Build outputs
-build/
-dist/
-
-# Kubernetes secrets (never commit real ones)
-*-secret.yaml
-!*-secret.example.yaml
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# AWS
-.aws/credentials
-```
+**One correction worth understanding, not just applying:** `.terraform.lock.hcl` must **not** be ignored — it should be *committed*. It's easy to lump it in with `.terraform/` (the provider binaries themselves, which genuinely should be ignored — they're large and OS-specific), but the lockfile is different: it's the Terraform equivalent of `package-lock.json`. It pins the exact provider versions (e.g. `hashicorp/aws = 5.72.1`) that a `terraform init` resolved to. Ignore it, and two runs — yours today, yours again in a month, or a teammate's — can each resolve a different provider version and get subtly different behavior from identical `.tf` code. Committing it is what makes `terraform apply` reproducible, which is the entire reason Terraform exists in this project. Confirm the repo's `.gitignore` does **not** list `.terraform.lock.hcl`.
 
 **Critical habit to start now:** anything named `*-secret.yaml` gets git-ignored by pattern from commit one — you'll create `.example.yaml` versions with placeholder values for anything sensitive. This single habit prevents the single most common real-world security incident (a committed secret) before it can ever happen.
 
@@ -232,37 +204,51 @@ Thumbs.db
 1. **Do not use your AWS root account for daily work.** Create a dedicated IAM user for this project.
 2. **Enable MFA** on both the root account and the new IAM user.
 3. Create the IAM user with a **least-privilege policy**, not `AdministratorAccess` — for this learning project, a reasonable starting policy grants EC2, EKS, ECR, IAM (role creation only), S3, DynamoDB, VPC, and Route53 permissions, not blanket admin. (We'll write the actual JSON policy in Phase 2, scoped to exactly what each phase needs — least privilege is easiest to maintain if you build it incrementally rather than starting wide and trying to narrow later.)
-4. **Set an AWS Budget alert immediately** — before provisioning anything. Go to Billing → Budgets → create a budget (e.g., $20/month threshold with an email alert at 80%). EKS + a NAT Gateway + an ALB genuinely cost real money even within free-tier/student-credit limits if left running — this single step prevents the most common "oops" story in every DevOps learner's first cloud project.
+4. **Set an AWS Budget alert immediately** — before provisioning anything. Go to Billing → Budgets → create a budget of **$40/month** with an email alert at **60%** (~$24). Size this deliberately, not arbitrarily: the EKS control plane alone costs $0.10/hour = **~$73/month if left running continuously**, before a single worker node, load balancer, or EC2 instance. A $20 budget would alert on day one just from the control plane. $40 assumes the discipline this project depends on — destroying the EKS cluster and stopping the Jenkins EC2 between work sessions (see the cost breakdown in `docs/project-overview.md`) — and still leaves headroom before the alert fires. EKS + a NAT Gateway + an ALB genuinely cost real money even within free-tier/student-credit limits if left running — this single step prevents the most common "oops" story in every DevOps learner's first cloud project.
 5. Note your AWS account ID and chosen region (pick one region and stay consistent across every phase — e.g., `ap-south-1` for Mumbai, lowest latency if you're in India).
 
 ## What to do right now, concretely
 
+**Already done** — the repo exists, `main` is the default branch, and `origin` points at `github.com/Mahakisore7/Diagram-Ops`. `.gitignore`, `LICENSE`, and `README.md` are committed. If you're reading this on a repo that doesn't have those yet, do steps 1–2 below first; otherwise skip to step 3.
+
 ```bash
-# 1. Create the repo
-mkdir three-tier-devsecops-platform && cd three-tier-devsecops-platform
+# 1. Create the repo (skip if it already exists, as it does here)
+mkdir Diagram-Ops && cd Diagram-Ops
 git init
 git branch -M main
+git remote add origin https://github.com/Mahakisore7/Diagram-Ops.git
 
-# 2. Create the folder skeleton
+# 2. First commit (skip if you already have commits)
+git add .
+git commit -m "chore: initial repo structure and foundations"
+git push -u origin main
+```
+
+**Still to do:**
+
+```bash
+# 3. Create the folder skeleton for the phases ahead (empty dirs aren't tracked by
+#    Git, so these appear once the first file lands in each — that's expected)
 mkdir -p application/frontend application/backend \
   infrastructure/jenkins-server infrastructure/eks-cluster infrastructure/modules \
   ci/jenkins charts/three-tier-app/templates \
-  gitops/apps observability/prometheus-grafana docs/phases \
+  gitops/apps observability/prometheus-grafana docs/adr \
   .github/ISSUE_TEMPLATE
 
-# 3. Add .gitignore, LICENSE, README.md, PR template, CODEOWNERS (content above)
+# 4. Add PR template, CODEOWNERS, issue templates (content above)
+git add .github/
+git commit -m "chore: add PR template, CODEOWNERS, and issue templates"
 
-# 4. First commit
-git add .
-git commit -m "chore: initial repo structure and foundations"
+# 5. Add a GitHub Actions workflow that lints/tests on every PR — see the note below.
+#    This is what branch protection will actually require, since Jenkins runs on an
+#    EC2 instance you'll be destroying between sessions from Phase 2 onward.
 
-# 5. Create the GitHub repo and push
-git remote add origin <your-repo-url>
-git push -u origin main
-
-# 6. Set up branch protection on `main` via GitHub repo Settings → Branches
-#    (require PR before merging; we'll add "require status checks" once Jenkins exists)
+# 6. Push, then set up branch protection on `main` via GitHub repo Settings → Branches:
+#    require a PR before merging, require the Actions check to pass, no direct pushes.
+git push
 ```
+
+**Why "require status checks" can't wait for Jenkins.** The original version of this phase deferred branch protection's status-check requirement to "once Jenkins exists." But Jenkins lives on an EC2 instance that Phase 2 tells you to stop when idle and Phase 4 has you tear down entirely — so for most of this project's life, a Jenkins-only gate would mean **no PR is ever actually checked**. A lightweight GitHub Actions workflow (lint, unit tests, `terraform fmt -check`, `helm lint` once those exist) survives teardown and gives branch protection something to require from day one. Jenkins remains the deep, security-gated pipeline for what actually reaches production (Phase 6) — the two aren't redundant, they check different things at different points in the workflow.
 
 ---
 

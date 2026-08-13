@@ -75,7 +75,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/<you>/three-tier-devsecops-platform.git
+    repoURL: https://github.com/Mahakisore7/Diagram-Ops.git
     targetRevision: main
     path: gitops/apps
   destination:
@@ -99,7 +99,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/<you>/three-tier-devsecops-platform.git
+    repoURL: https://github.com/Mahakisore7/Diagram-Ops.git
     targetRevision: main
     path: charts/three-tier-app
     helm:
@@ -142,7 +142,7 @@ stage('Update GitOps Manifest') {
                 yq eval '.backend.image.tag = "sha-${env.GIT_SHA_SHORT}"' -i charts/three-tier-app/values-prod.yaml
                 git add charts/three-tier-app/values-prod.yaml
                 git commit -m "ci(gitops): deploy backend sha-${env.GIT_SHA_SHORT}"
-                git push https://\${GIT_USER}:\${GIT_PASS}@github.com/<you>/three-tier-devsecops-platform.git main
+                git push https://\${GIT_USER}:\${GIT_PASS}@github.com/Mahakisore7/Diagram-Ops.git main
             """
         }
     }
