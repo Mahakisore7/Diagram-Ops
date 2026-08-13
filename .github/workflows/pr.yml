@@ -1,0 +1,99 @@
+name: PR Checks
+
+# Runs on every pull request into main. This is the check branch protection
+# requires — see docs/Phases/phase-0-foundations.md for why it exists
+# independently of the Jenkins pipeline built in Phase 6.
+#
+# Design note for anyone reading this early in the project: most of these
+# steps are conditional on the relevant files existing yet (`hashFiles(...)`).
+# In Phase 0 there's no application code, no Terraform, no Helm chart — so
+# every step below is a no-op and the job still passes. As each phase adds
+# real files, its corresponding step starts actually running. That's
+# deliberate: this workflow is meant to exist from commit one, not be
+# written once Phase 1 or 2 lands.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Lint, test, validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------- Backend ----------
+      - name: Set up Node.js
+        if: hashFiles('application/backend/package.json') != '' || hashFiles('application/frontend/package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+
+      - name: Backend — install
+        if: hashFiles('application/backend/package.json') != ''
+        working-directory: application/backend
+        run: npm ci
+
+      - name: Backend — lint
+        if: hashFiles('application/backend/package.json') != ''
+        working-directory: application/backend
+        run: npm run lint --if-present
+
+      - name: Backend — test
+        if: hashFiles('application/backend/package.json') != ''
+        working-directory: application/backend
+        run: npm test --if-present
+
+      # ---------- Frontend ----------
+      - name: Frontend — install
+        if: hashFiles('application/frontend/package.json') != ''
+        working-directory: application/frontend
+        run: npm ci
+
+      - name: Frontend — lint
+        if: hashFiles('application/frontend/package.json') != ''
+        working-directory: application/frontend
+        run: npm run lint --if-present
+
+      - name: Frontend — build
+        if: hashFiles('application/frontend/package.json') != ''
+        working-directory: application/frontend
+        run: npm run build --if-present
+
+      # ---------- Terraform ----------
+      - name: Set up Terraform
+        if: hashFiles('infrastructure/**/*.tf') != ''
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform — format check
+        if: hashFiles('infrastructure/**/*.tf') != ''
+        run: terraform fmt -check -recursive infrastructure/
+
+      # ---------- Helm ----------
+      - name: Set up Helm
+        if: hashFiles('charts/**/Chart.yaml') != ''
+        uses: azure/setup-helm@v4
+
+      - name: Helm — lint
+        if: hashFiles('charts/**/Chart.yaml') != ''
+        run: helm lint charts/three-tier-app
+
+      # ---------- Secret hygiene (always runs) ----------
+      # Scans every file actually tracked by git (not the working tree) for
+      # secret-shaped names. This is a backstop, not the primary defense —
+      # .gitignore is what should stop these from being staged in the first
+      # place — but a backstop catches the day someone force-adds a file.
+      - name: Block accidental secret-shaped files
+        run: |
+          MATCHES=$(git ls-files | grep -E '(^|/)\.env$|-secret\.ya?ml$|\.pem$|\.tfvars$' | grep -v '\.example' || true)
+          if [ -n "$MATCHES" ]; then
+            echo "::error::Tracked files match a secret-shaped pattern — .env, *-secret.yaml, *.pem, and *.tfvars should never be committed (only their .example counterparts):"
+            echo "$MATCHES"
+            exit 1
+          fi
+          echo "No secret-shaped filenames tracked."
