@@ -1,0 +1,73 @@
+# No top-level `version:` key — obsolete in Compose v2 (the standalone
+# `docker-compose` v1 binary is what needed it; the `docker compose` v2
+# plugin used here ignores and warns on it).
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    # Healthcheck-gated, not just `depends_on: [mongo]` — the default form
+    # only waits for the container to START, not for MongoDB to actually
+    # accept connections. Without `condition: service_healthy` here, the
+    # backend can (and, non-deterministically, sometimes will) start before
+    # Mongo is ready to accept its first connection.
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "5000:5000" # local-dev convenience only — in Kubernetes the
+        # backend Service is ClusterIP-only, never exposed directly
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/diagramops
+      JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me}
+      JWT_EXPIRES_IN: 24h
+      DEFAULT_LLM_PROVIDER: groq
+      FALLBACK_LLM_PROVIDER: claude
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: llama-3.3-70b-versatile
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: claude-sonnet-5
+      DAILY_CLAUDE_CALL_CAP: ${DAILY_CLAUDE_CALL_CAP:-50}
+      RATE_LIMIT_WINDOW_MS: 60000
+      RATE_LIMIT_MAX: 30
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:5000/healthz', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      # Host port matches Vite's own dev-server port (5173) on purpose —
+      # "localhost:5173" means "the frontend" whether it's running via
+      # `npm run dev` or `docker compose up`.
+      - "5173:8080"
+
+volumes:
+  mongo-data:
