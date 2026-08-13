@@ -10,7 +10,14 @@ Diagram-Ops is designed for learning DevOps and cloud engineering without gettin
 
 ## Start Here
 
-New to the project (or to any of the tooling)? Read **[docs/project-overview.md](docs/project-overview.md)** first — it explains what every tool is for, in plain language with examples, plus what the whole thing costs to run. The phase files tell you *what to type*; the overview tells you *what it means*.
+| Document | What it covers |
+|---|---|
+| **[Project Overview](docs/project-overview.md)** | What every tool is for, in plain language with examples. The life of a commit. Real AWS costs. Start here. |
+| **[Functional Specification](docs/functional-spec.md)** | Actors, functional and non-functional requirements, use cases, API contract, error catalogue. |
+| **[System Design](docs/system-design.md)** | ER model, use case / class / sequence / activity / state / component / deployment diagrams, design decisions. |
+| **[Phases](docs/Phases/)** | Step-by-step build instructions, Phase 0 through Phase 16. |
+
+The phase files tell you *what to type*; the three documents above tell you *what it means* and *why it's shaped that way*.
 
 ## Phase Roadmap
 
