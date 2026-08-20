@@ -17,11 +17,12 @@ graph TB
         subgraph "VPC 10.0.0.0/16"
             IGW[Internet Gateway]
             subgraph "Public Subnet"
-                EC2[Jenkins EC2<br/>t3.medium]
+                EC2[Jenkins EC2<br/>t3.large]
             end
         end
         SG[Security Group:<br/>your IP only]
         IAM[IAM Role:<br/>least-privilege]
+        EIP[Elastic IP:<br/>stable across stop/start]
         S3State[(S3: Terraform State)]
         DDB[(DynamoDB: State Lock)]
     end
@@ -29,6 +30,7 @@ graph TB
     SG --> EC2
     IAM --> EC2
     IGW --> EC2
+    EIP --> EC2
     Terraform[Your Terraform CLI] -->|reads/writes| S3State
     Terraform -->|locks| DDB
 ```
@@ -282,22 +284,6 @@ resource "aws_iam_role_policy" "jenkins_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "ECRPushPull"
-        Effect = "Allow"
-        Action = [
-          "ecr:GetAuthorizationToken",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:PutImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:CreateRepository"
-        ]
-        Resource = "*"
-      },
-      {
         Sid      = "TerraformStateAccess"
         Effect   = "Allow"
         Action   = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
@@ -328,7 +314,7 @@ output "instance_profile_name" { value = aws_iam_instance_profile.jenkins.name }
 output "role_arn" { value = aws_iam_role.jenkins.arn }
 ```
 
-**Important, explicit note:** this policy grants exactly ECR access and Terraform state access — nothing EKS-related yet. In Phase 4, when Jenkins needs to actually deploy to the cluster, we'll extend this same policy with the specific EKS permissions needed, rather than granting broad `eks:*` access now "just in case." Building permissions incrementally, only when a phase actually needs them, is what least-privilege looks like in practice, not just in principle.
+**Important, explicit note:** this policy grants exactly Terraform state access — nothing else yet, not even ECR. It's tempting to add `ecr:*` push/pull rights here "since we'll need it eventually," but Jenkins doesn't push a single image until Phase 6, and the ECR repository this would reference doesn't exist until Phase 5 — so today, the only way to scope it is `Resource = "*"`, granting push/pull to *every* repository in the account for a capability nothing uses yet. We'll add the ECR statement in Phase 5, once the real repository exists, scoped to its exact ARN. Same reasoning applies to EKS: Phase 4 extends this same policy with the specific permissions needed then, not broad `eks:*` access now "just in case." Building permissions incrementally, only when a phase actually needs them, is what least-privilege looks like in practice, not just in principle.
 
 ---
 
@@ -386,9 +372,34 @@ resource "aws_instance" "jenkins" {
     encrypted   = true
   }
 
+  # Forces IMDSv2 (session-token-based) instead of leaving IMDSv1 (plain
+  # GET) available. Without this, any SSRF bug anywhere in code running on
+  # this box — now or in a future phase — can fetch this instance's live
+  # IAM credentials with a single unauthenticated GET request to
+  # 169.254.169.254. This is the exact mechanism behind the 2019 Capital
+  # One breach. http_tokens = "required" closes it at zero cost.
+  metadata_options {
+    http_tokens   = "required"
+    http_endpoint = "enabled"
+  }
+
   user_data = file("${path.module}/user_data.sh")
 
   tags = { Name = "${var.project_name}-jenkins-server" }
+}
+
+# Without this, stopping and restarting the instance (the cost-saving habit
+# recommended below) hands it a brand-new random public IP every time —
+# silently breaking the GitHub webhook URL Phase 6 configures, any
+# bookmarked Jenkins URL, and any DNS record pointed at it. An EIP keeps
+# the address identical across every stop/start cycle. Note this isn't a
+# money-saving move under current AWS pricing (public IPv4 addresses,
+# EIP or not, cost the same small hourly rate since the Feb 2024 pricing
+# change) — it's purely about the address staying stable.
+resource "aws_eip" "jenkins" {
+  instance = aws_instance.jenkins.id
+  domain   = "vpc"
+  tags     = { Name = "${var.project_name}-jenkins-eip" }
 }
 ```
 
@@ -398,14 +409,17 @@ variable "aws_region" { default = "ap-south-1" }
 variable "project_name" { default = "diagramforge" }
 variable "admin_ip" { type = string }
 variable "jenkins_ami" { type = string }
-variable "instance_type" { default = "t3.medium" }
+variable "instance_type" { default = "t3.large" } # not t3.medium — Phase 3 adds
+# SonarQube (JVM + Elasticsearch) to this same box, on top of Jenkins's own
+# JVM plus the memory Docker builds need. 4GB (t3.medium) is genuinely
+# tight for that combination; 8GB (t3.large) avoids a resize mid-course.
 variable "ssh_public_key_path" { default = "~/.ssh/id_rsa.pub" }
 variable "state_bucket_name" { type = string }
 ```
 
 ```hcl
 # infrastructure/jenkins-server/outputs.tf
-output "jenkins_public_ip" { value = aws_instance.jenkins.public_ip }
+output "jenkins_public_ip" { value = aws_eip.jenkins.public_ip }
 output "jenkins_instance_id" { value = aws_instance.jenkins.id }
 ```
 
@@ -495,7 +509,7 @@ terraform plan    # read this output carefully before applying, every time
 terraform apply
 ```
 
-**Cost check-in:** a `t3.medium` running continuously costs real money — this is exactly what your Phase 0 AWS Budget alert is for. Consider stopping the instance (`aws ec2 stop-instances`) between working sessions rather than leaving it running 24/7 while you're mid-course, and `terraform destroy` entirely once you've moved past needing to reference this specific phase live.
+**Cost check-in:** a `t3.large` running continuously costs real money (~$60/month on-demand in `ap-south-1`, roughly double what `t3.medium` would have been) — this is exactly what your Phase 0 AWS Budget alert is for. Consider stopping the instance (`aws ec2 stop-instances`) between working sessions rather than leaving it running 24/7 while you're mid-course, and `terraform destroy` entirely once you've moved past needing to reference this specific phase live.
 
 ---
 
@@ -529,6 +543,8 @@ git push origin infra/phase-2-jenkins-terraform
 - [ ] `http://<jenkins_public_ip>:8080` loads the Jenkins unlock screen (confirms Jenkins installed via user-data)
 - [ ] The security group allows access only from your IP — verify by checking from a different network/VPN if possible
 - [ ] State file exists in S3 (`aws s3 ls s3://<your-bucket>/jenkins-server/`), not on your local disk
+- [ ] IMDSv2 is enforced: `aws ec2 describe-instances --instance-ids <id> --query 'Reservations[0].Instances[0].MetadataOptions.HttpTokens'` returns `"required"`
+- [ ] Stop the instance (`aws ec2 stop-instances --instance-ids <id>`), start it again, confirm the public IP is unchanged (proves the EIP is doing its job)
 - [ ] AWS Budget alert from Phase 0 is confirmed active
 
 ---
