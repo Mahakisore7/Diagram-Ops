@@ -1,0 +1,3 @@
+admin_ip          = "YOUR_IP/32"
+jenkins_ami        = "ami-xxxxxxxxxxxxx"
+state_bucket_name  = "diagramforge-tfstate-<your-account-id>"
