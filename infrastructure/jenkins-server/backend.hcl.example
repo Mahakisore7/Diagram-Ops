@@ -1,0 +1,5 @@
+bucket         = "diagramforge-tfstate-<your-account-id>"
+key            = "jenkins-server/terraform.tfstate"
+region         = "ap-south-1"
+dynamodb_table = "diagramforge-tfstate-locks"
+encrypt        = true
