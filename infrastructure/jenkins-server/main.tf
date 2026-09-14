@@ -42,6 +42,14 @@ resource "aws_instance" "jenkins" {
   iam_instance_profile   = module.iam_role.instance_profile_name
   key_name               = aws_key_pair.jenkins.key_name
 
+  # user_data only ever executes on an instance's first boot (via
+  # cloud-init) - without this, changing user_data just updates the
+  # attribute AWS stores, silently, on the already-running instance,
+  # without ever re-running the install script. This forces a real
+  # destroy+recreate whenever user_data.sh changes, so a fix like this
+  # one actually takes effect.
+  user_data_replace_on_change = true
+
   root_block_device {
     volume_size = 30
     volume_type = "gp3"

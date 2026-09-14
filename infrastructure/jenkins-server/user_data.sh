@@ -4,19 +4,24 @@ set -euo pipefail
 apt-get update -y
 apt-get upgrade -y
 
-# Java — required by Jenkins
+# Java - required by Jenkins
 apt-get install -y fontconfig openjdk-17-jre
 
-# Jenkins repo + install
-curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | \
+# Jenkins repo + install. The signing key filename is fetched dynamically,
+# not hardcoded (e.g. "jenkins.io-2023.key") - Jenkins rotates this key
+# periodically, and a hardcoded name silently goes stale (NO_PUBKEY /
+# "repository is not signed" at apt-get update time, with no warning at
+# `terraform plan` time - this only surfaces on a real boot).
+JENKINS_KEY_FILE=$(curl -fsSL https://pkg.jenkins.io/debian-stable/ | \
+  grep -oE '[a-zA-Z0-9._-]+\.key' | sort -u | tail -1)
+curl -fsSL "https://pkg.jenkins.io/debian-stable/${JENKINS_KEY_FILE}" | \
   tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
-echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
-  https://pkg.jenkins.io/debian-stable binary/" | \
+echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/" | \
   tee /etc/apt/sources.list.d/jenkins.list > /dev/null
 apt-get update -y
 apt-get install -y jenkins
 
-# Docker — Jenkins will need this to build images
+# Docker - Jenkins will need this to build images
 apt-get install -y docker.io
 usermod -aG docker jenkins
 
