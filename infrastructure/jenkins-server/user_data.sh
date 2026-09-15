@@ -4,8 +4,14 @@ set -euo pipefail
 apt-get update -y
 apt-get upgrade -y
 
-# Java - required by Jenkins
-apt-get install -y fontconfig openjdk-17-jre
+# Java - required by Jenkins. Jenkins raises its minimum supported Java
+# version periodically as older JDKs go EOL; openjdk-17-jre was enough
+# when this script was first written, but the current Jenkins release
+# refuses to start under anything older than Java 21 (confirmed via
+# `/usr/bin/jenkins` printing "Supported Java versions are: [21, 25]"
+# when run manually) - check https://jenkins.io/redirect/java-support/
+# if this ever breaks again.
+apt-get install -y fontconfig openjdk-21-jre
 
 # Jenkins repo + install. The signing key filename is fetched dynamically,
 # not hardcoded (e.g. "jenkins.io-2023.key") - Jenkins rotates this key
