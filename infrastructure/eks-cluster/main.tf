@@ -47,6 +47,15 @@ resource "aws_eks_cluster" "this" {
     endpoint_private_access = false
   }
 
+  # EKS Access Entries (used below to grant Jenkins cluster access) only
+  # work when the cluster's authentication mode includes "API" - it isn't
+  # the default on the API this provider version targets, so it has to be
+  # requested explicitly.
+  access_config {
+    authentication_mode                         = "API_AND_CONFIG_MAP"
+    bootstrap_cluster_creator_admin_permissions = true
+  }
+
   depends_on = [aws_iam_role_policy_attachment.eks_cluster_policy]
 }
 
@@ -124,4 +133,55 @@ resource "aws_eks_access_policy_association" "jenkins_admin" {
   access_scope {
     type = "cluster"
   }
+
+  # Both resources target the same principal but neither's arguments
+  # reference the other, so Terraform has no automatic reason to order
+  # them - without this, it creates them in parallel and the association
+  # can reach EKS before the access entry it depends on actually exists.
+  depends_on = [aws_eks_access_entry.jenkins]
+}
+
+# --- IRSA role for the AWS Load Balancer Controller ---
+# The doc this phase is based on uses `eksctl create iamserviceaccount` for
+# this step, which auto-creates the IAM role via a CloudFormation stack
+# under an eksctl-generated name outside our diagramforge-* naming
+# convention - on this account's locked-down IAM permissions that would
+# mean yet another one-off permission grant for an unpredictable ARN.
+# Creating it here instead, under our own name, reuses the iam:CreateRole
+# grant already scoped to role/diagramforge-* from Phase 2.
+locals {
+  oidc_provider_host = replace(aws_iam_openid_connect_provider.eks.url, "https://", "")
+}
+
+resource "aws_iam_role" "lb_controller" {
+  name = "${var.project_name}-lb-controller-role"
+
+  # Trusts only this specific Kubernetes service account (kube-system/
+  # aws-load-balancer-controller) via the cluster's OIDC provider - this is
+  # what IRSA actually is: the pod's Kubernetes identity is exchanged for
+  # temporary AWS credentials scoped to this role, no static keys involved.
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Federated = aws_iam_openid_connect_provider.eks.arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${local.oidc_provider_host}:aud" = "sts.amazonaws.com"
+          "${local.oidc_provider_host}:sub" = "system:serviceaccount:kube-system:aws-load-balancer-controller"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_policy" "lb_controller" {
+  name   = "${var.project_name}-lb-controller-policy"
+  policy = file("${path.module}/lb-controller-iam-policy.json")
+}
+
+resource "aws_iam_role_policy_attachment" "lb_controller" {
+  role       = aws_iam_role.lb_controller.name
+  policy_arn = aws_iam_policy.lb_controller.arn
 }
