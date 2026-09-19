@@ -1,5 +1,5 @@
 jenkins:
-  systemMessage: "DiagramForge CI/CD — managed via Configuration as Code"
+  systemMessage: "DiagramForge CI/CD - managed via Configuration as Code"
   numExecutors: 2
   mode: NORMAL
   authorizationStrategy:
