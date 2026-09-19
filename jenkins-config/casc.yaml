@@ -1,0 +1,33 @@
+jenkins:
+  systemMessage: "DiagramForge CI/CD — managed via Configuration as Code"
+  numExecutors: 2
+  mode: NORMAL
+  authorizationStrategy:
+    globalMatrix:
+      permissions:
+        - "Overall/Administer:${JENKINS_ADMIN_ID}"
+
+unclassified:
+  sonarGlobalConfiguration:
+    installations:
+      - name: "sonarqube-server"
+        serverUrl: "http://localhost:9000"
+        credentialsId: "sonarqube-token"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-credentials"
+              username: "${GITHUB_USERNAME}"
+              password: "${GITHUB_PAT}"
+          - string:
+              scope: GLOBAL
+              id: "anthropic-api-key"
+              secret: "${ANTHROPIC_API_KEY}"
+          - string:
+              scope: GLOBAL
+              id: "sonarqube-token"
+              secret: "${SONARQUBE_TOKEN}"
