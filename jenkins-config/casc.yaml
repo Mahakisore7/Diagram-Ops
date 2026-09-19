@@ -7,12 +7,13 @@ jenkins:
       permissions:
         - "Overall/Administer:${JENKINS_ADMIN_ID}"
 
-unclassified:
-  sonarGlobalConfiguration:
-    installations:
-      - name: "sonarqube-server"
-        serverUrl: "http://localhost:9000"
-        credentialsId: "sonarqube-token"
+# The installed SonarQube-integration plugin (sonar-quality-gates) uses a
+# different JCasC schema than the classic "SonarQube Scanner" plugin this
+# block originally assumed (sonarGlobalConfiguration) - that attribute name
+# no longer exists and hard-crashed Jenkins on every boot. Configuring the
+# SonarQube server connection is done manually via Manage Jenkins > System
+# instead, referencing the sonarqube-token credential below, until the
+# correct current schema for this plugin is confirmed.
 
 credentials:
   system:
