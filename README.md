@@ -42,7 +42,9 @@ The phase files tell you *what to type*; the three documents above tell you *wha
 
 ## Current Status
 
-**Phase 1 is complete.** The application — React frontend, Express backend, MongoDB, JWT auth, multi-provider LLM generation with fallback and a daily cost cap — is built, tested (46 Jest tests + a real-browser Playwright verification), containerized, and running as a three-tier stack via Docker Compose. The next practical step is Phase 2: standing up the Jenkins infrastructure with Terraform.
+**Phase 1 is complete.** The application — React frontend, Express backend, MongoDB, JWT auth, multi-provider LLM generation with fallback and a daily cost cap — is built, tested (46 Jest tests + a real-browser Playwright verification), containerized, and running as a three-tier stack via Docker Compose.
+
+**Phase 2 is complete.** The Jenkins server's infrastructure — VPC, a security group locked to an admin IP, a least-privilege IAM role, and the EC2 instance itself — is fully defined in Terraform (`infrastructure/`), with state stored remotely in S3 with DynamoDB locking. Jenkins is installed, unlocked, and reachable at its own admin-restricted URL. The next practical step is Phase 3: configuring Jenkins itself (plugins, SonarQube, Trivy, and proper credential storage).
 
 Run it locally:
 

@@ -1,0 +1,34 @@
+jenkins:
+  systemMessage: "DiagramForge CI/CD - managed via Configuration as Code"
+  numExecutors: 2
+  mode: NORMAL
+  authorizationStrategy:
+    globalMatrix:
+      permissions:
+        - "Overall/Administer:${JENKINS_ADMIN_ID}"
+
+# The installed SonarQube-integration plugin (sonar-quality-gates) uses a
+# different JCasC schema than the classic "SonarQube Scanner" plugin this
+# block originally assumed (sonarGlobalConfiguration) - that attribute name
+# no longer exists and hard-crashed Jenkins on every boot. Configuring the
+# SonarQube server connection is done manually via Manage Jenkins > System
+# instead, referencing the sonarqube-token credential below, until the
+# correct current schema for this plugin is confirmed.
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-credentials"
+              username: "${GITHUB_USERNAME}"
+              password: "${GITHUB_PAT}"
+          - string:
+              scope: GLOBAL
+              id: "anthropic-api-key"
+              secret: "${ANTHROPIC_API_KEY}"
+          - string:
+              scope: GLOBAL
+              id: "sonarqube-token"
+              secret: "${SONARQUBE_TOKEN}"
