@@ -29,6 +29,27 @@ module "iam_role" {
   state_bucket_name = var.state_bucket_name
 }
 
+# Closes the loop from Phase 3, which deliberately deferred this - Jenkins
+# had no reason to touch EKS before the cluster existed. Now that Phase 4
+# provisions it, grant exactly the three read/connect actions needed to
+# describe the cluster and reach its Kubernetes API; actual in-cluster
+# permissions are controlled separately via the EKS Access Entry in
+# infrastructure/eks-cluster, not by this IAM policy.
+resource "aws_iam_role_policy" "jenkins_eks_access" {
+  name = "${var.project_name}-jenkins-eks-policy"
+  role = module.iam_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "EKSAccess"
+      Effect   = "Allow"
+      Action   = ["eks:DescribeCluster", "eks:ListClusters", "eks:AccessKubernetesApi"]
+      Resource = "*"
+    }]
+  })
+}
+
 resource "aws_key_pair" "jenkins" {
   key_name   = "${var.project_name}-jenkins-key"
   public_key = file(var.ssh_public_key_path)
