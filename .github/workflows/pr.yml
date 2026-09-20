@@ -22,6 +22,21 @@ jobs:
   ci:
     name: Lint, test, validate
     runs-on: ubuntu-latest
+    # tests/integration.test.js hits a real MongoDB rather than mocking it
+    # (see that file's header comment) - this service container is what it
+    # connects to via the default mongodb://localhost:27017 in
+    # tests/setupEnv.js. GitHub Actions maps service container ports to
+    # localhost on the runner automatically.
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping:1})' --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
