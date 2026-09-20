@@ -33,7 +33,12 @@ resource "aws_ecr_repository_policy" "frontend" {
       Sid       = "AllowJenkinsPush"
       Effect    = "Allow"
       Principal = { AWS = var.jenkins_role_arn }
-      Action    = ["ecr:PutImage", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:BatchCheckLayerAvailability"]
+      # BatchGetImage is a read action, but IMMUTABLE tag repos need it even
+      # for a push: ECR reads the existing manifest to enforce immutability
+      # before accepting a new one, and the pushing principal needs
+      # permission for that read - discovered via a real 403 on the
+      # manifest HEAD request during a live test push, not from the docs.
+      Action = ["ecr:PutImage", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage"]
     }]
   })
 }
@@ -46,7 +51,7 @@ resource "aws_ecr_repository_policy" "backend" {
       Sid       = "AllowJenkinsPush"
       Effect    = "Allow"
       Principal = { AWS = var.jenkins_role_arn }
-      Action    = ["ecr:PutImage", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:BatchCheckLayerAvailability"]
+      Action    = ["ecr:PutImage", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage"]
     }]
   })
 }

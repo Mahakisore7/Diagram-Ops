@@ -50,6 +50,27 @@ resource "aws_iam_role_policy" "jenkins_eks_access" {
   })
 }
 
+# ecr:GetAuthorizationToken (needed just to `docker login`) is an
+# account-wide action with no resource-level permissions - it can only be
+# granted via an identity-based IAM policy, never via a repository policy.
+# Phase 5's per-repository policies grant the actual push actions, but
+# without this, Jenkins can never even authenticate to ECR in the first
+# place.
+resource "aws_iam_role_policy" "jenkins_ecr_auth" {
+  name = "${var.project_name}-jenkins-ecr-auth-policy"
+  role = module.iam_role.role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "ECRAuth"
+      Effect   = "Allow"
+      Action   = ["ecr:GetAuthorizationToken"]
+      Resource = "*"
+    }]
+  })
+}
+
 resource "aws_key_pair" "jenkins" {
   key_name   = "${var.project_name}-jenkins-key"
   public_key = file(var.ssh_public_key_path)
