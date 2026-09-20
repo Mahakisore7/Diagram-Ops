@@ -33,6 +33,9 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'npm'
+          cache-dependency-path: |
+            application/backend/package-lock.json
+            application/frontend/package-lock.json
 
       - name: Backend — install
         if: hashFiles('application/backend/package.json') != ''
