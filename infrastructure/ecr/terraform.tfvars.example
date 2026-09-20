@@ -1,0 +1,2 @@
+# Get this from: cd ../jenkins-server && terraform output role_arn
+jenkins_role_arn = "arn:aws:iam::<your-account-id>:role/diagramforge-jenkins-role"
