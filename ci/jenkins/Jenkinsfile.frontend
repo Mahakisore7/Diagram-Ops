@@ -1,0 +1,81 @@
+@Library('diagramforge-shared') _
+
+pipeline {
+    agent any
+
+    environment {
+        ECR_REGISTRY  = "368339042048.dkr.ecr.ap-south-1.amazonaws.com"
+        FRONTEND_REPO = "diagramforge-frontend"
+        AWS_REGION    = "ap-south-1"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script { env.GIT_SHA_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim() }
+            }
+        }
+
+        stage('Check Relevant Changes') {
+            steps {
+                script {
+                    def changes = sh(script: "git diff --name-only HEAD~1 HEAD || true", returnStdout: true).trim()
+                    if (!changes.contains('application/frontend/') && !changes.contains('Jenkinsfile.frontend')) {
+                        currentBuild.result = 'NOT_BUILT'
+                        error("No frontend changes — skipping this pipeline run")
+                    }
+                }
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps { dir('application/frontend') { sh 'npm ci' } }
+        }
+
+        stage('SonarQube Scan') {
+            steps {
+                dir('application/frontend') {
+                    sonarQubeScan(projectKey: 'diagramforge-frontend', sourcePath: 'src')
+                }
+            }
+        }
+
+        stage('OWASP Dependency-Check') {
+            steps {
+                dir('application/frontend') {
+                    owaspDependencyCheck(projectName: 'diagramforge-frontend', scanPath: '.')
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                dir('application/frontend') {
+                    sh "docker build -t diagramforge-frontend:${env.GIT_SHA_SHORT} ."
+                }
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps { trivyScan(image: "diagramforge-frontend:${env.GIT_SHA_SHORT}") }
+        }
+
+        stage('Push to ECR') {
+            when { branch 'main' }
+            steps {
+                pushToECR(
+                    region: env.AWS_REGION,
+                    registry: env.ECR_REGISTRY,
+                    repoName: env.FRONTEND_REPO,
+                    localImage: "diagramforge-frontend:${env.GIT_SHA_SHORT}"
+                )
+            }
+        }
+    }
+
+    post {
+        always  { cleanWs() }
+        failure { echo "Frontend pipeline failed — check which gate above stopped it." }
+    }
+}
