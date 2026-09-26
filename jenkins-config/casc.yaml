@@ -54,3 +54,7 @@ credentials:
               scope: GLOBAL
               id: "sonarqube-token"
               secret: "${SONARQUBE_TOKEN}"
+          - string:
+              scope: GLOBAL
+              id: "nvd-api-key"
+              secret: "${NVD_API_KEY}"
