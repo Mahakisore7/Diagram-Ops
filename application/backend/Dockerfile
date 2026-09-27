@@ -18,7 +18,13 @@ WORKDIR /app
 # re-runs `npm ci` when package*.json actually changes — not on every
 # source edit.
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+# npm itself is only needed to install these deps - CMD below calls `node`
+# directly and never shells out to npm/npx at runtime. The npm CLI bundled
+# with the base image carries its own internal deps (unrelated to ours)
+# that can pick up CVEs, so it's removed once the install is done rather
+# than left as unused attack surface in the shipped image.
+RUN npm ci --omit=dev && npm cache clean --force && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 COPY src ./src
 

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+   <!--
+     NVD's CPE dictionary uses the same vendor/product identifier
+     (cpe:2.3:a:mongodb:mongodb:*) for both the MongoDB Server (the
+     database engine binary) and the "mongodb" npm driver package we
+     depend on via mongoose. OWASP Dependency-Check's CPE matching
+     conflates the two, so server-side CVEs (e.g. aggregation pipeline
+     bugs in mongod itself) get incorrectly attributed to any project
+     that merely uses the Node.js driver to talk to a MongoDB server.
+
+     Each suppression below was individually verified against the
+     CVE's own "vulnerableSoftware" CPE range in the dependency-check
+     report before being added here - none of them describe the
+     driver library itself.
+   -->
+   <suppress>
+      <notes><![CDATA[
+      CVE-2026-9753 describes a MongoDB Server aggregation pipeline
+      crash ($_internalApplyOplogUpdate), fixed in mongod versions
+      7.0.35 / 8.0.24 / 8.2.10 / 8.3.3. It does not describe the
+      mongodb npm driver package, which has no matching versioning
+      scheme or fix. False positive from CPE vendor/product collision.
+      ]]></notes>
+      <packageUrl regex="true">^pkg:npm/mongodb@.*$</packageUrl>
+      <cve>CVE-2026-9753</cve>
+   </suppress>
+</suppressions>
