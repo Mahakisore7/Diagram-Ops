@@ -7,13 +7,35 @@ jenkins:
       permissions:
         - "Overall/Administer:${JENKINS_ADMIN_ID}"
 
-# The installed SonarQube-integration plugin (sonar-quality-gates) uses a
-# different JCasC schema than the classic "SonarQube Scanner" plugin this
-# block originally assumed (sonarGlobalConfiguration) - that attribute name
-# no longer exists and hard-crashed Jenkins on every boot. Configuring the
-# SonarQube server connection is done manually via Manage Jenkins > System
-# instead, referencing the sonarqube-token credential below, until the
-# correct current schema for this plugin is confirmed.
+# Phase 3 removed this block: the plugin installed at the time
+# (sonar-quality-gates) doesn't have a sonarGlobalConfiguration attribute,
+# and it hard-crashed Jenkins on every boot. Phase 6 installs the classic
+# "SonarQube Scanner" plugin (id: sonar) specifically for its pipeline
+# steps (withSonarQubeEnv, waitForQualityGate) that the shared library
+# depends on - that plugin does define this attribute, so this config is
+# safe to restore.
+unclassified:
+  sonarGlobalConfiguration:
+    installations:
+      - name: "sonarqube-server"
+        serverUrl: "http://localhost:9000"
+        credentialsId: "sonarqube-token"
+
+  globalLibraries:
+    libraries:
+      - name: "diagramforge-shared"
+        defaultVersion: "main"
+        implicit: false
+        retriever:
+          modernSCM:
+            scm:
+              git:
+                # Jenkins can only load a shared library from the root of a
+                # repo (neither SCM retriever has a subdirectory option), so
+                # it lives in its own public repo. Public, so no credential
+                # is needed - the fine-grained GitHub PAT is scoped to
+                # Diagram-Ops only anyway.
+                remote: "https://github.com/${GITHUB_USERNAME}/diagramforge-jenkins-shared-library.git"
 
 credentials:
   system:
@@ -32,3 +54,7 @@ credentials:
               scope: GLOBAL
               id: "sonarqube-token"
               secret: "${SONARQUBE_TOKEN}"
+          - string:
+              scope: GLOBAL
+              id: "nvd-api-key"
+              secret: "${NVD_API_KEY}"
