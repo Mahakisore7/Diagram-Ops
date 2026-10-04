@@ -41,4 +41,17 @@ const authLimiter = rateLimit({
   handler: tooManyRequests,
 });
 
-module.exports = { generateLimiter, authLimiter };
+// IP-keyed limiter for unauthenticated share-link views. Generous enough
+// for a link pasted into a team chat, tight enough that enumerating tokens
+// from one address is pointless on top of their 144-bit entropy.
+const publicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  skip: isTestEnv,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests. Please wait a minute and try again.',
+  handler: tooManyRequests,
+});
+
+module.exports = { generateLimiter, authLimiter, publicLimiter };
