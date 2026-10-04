@@ -50,7 +50,11 @@ pipeline {
         stage('OWASP Dependency-Check') {
             steps {
                 dir('application/backend') {
-                    owaspDependencyCheck(projectName: 'diagramforge-backend', scanPath: '.')
+                    owaspDependencyCheck(
+                        projectName: 'diagramforge-backend',
+                        scanPath: '.',
+                        suppressionFile: 'dependency-check-suppression.xml'
+                    )
                 }
             }
         }

@@ -3,6 +3,11 @@ const http = require('http');
 const createApp = require('./app');
 const db = require('./db/connect');
 
+// Phase 6 pipeline verification: this comment is a deliberate, no-op change
+// scoped to application/backend/ so the Jenkinsfile.backend "Check Relevant
+// Changes" guard lets a real run through SonarQube, OWASP, Docker build,
+// Trivy, and ECR push.
+
 async function start() {
   await db.connect();
   const app = createApp();
