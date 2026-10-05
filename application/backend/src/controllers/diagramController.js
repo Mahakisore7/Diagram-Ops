@@ -38,7 +38,7 @@ const generate = asyncHandler(async (req, res) => {
 });
 
 const save = asyncHandler(async (req, res) => {
-  const { title, sourceText, diagramType, mermaidSyntax, providerUsed, generationMs } = req.body;
+  const { title, sourceText, diagramType, mermaidSyntax, providerUsed, generationMs, tags } = req.body;
 
   if (typeof sourceText !== 'string' || sourceText.trim().length === 0) {
     throw new ApiError(400, 'VALIDATION_ERROR', 'sourceText is required.');
@@ -59,6 +59,7 @@ const save = asyncHandler(async (req, res) => {
     mermaidSyntax,
     providerUsed,
     generationMs,
+    tags: tags === undefined ? [] : normaliseTags(tags),
   });
   await activity.record(req, req.userId, activity.ACTIONS.DIAGRAM_CREATE, { id: diagram._id, title: diagram.title });
   res.status(201).json(diagram);

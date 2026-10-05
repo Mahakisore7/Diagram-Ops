@@ -344,3 +344,22 @@ describe('account management and activity log', () => {
     expect(me.status).toBe(401);
   });
 });
+
+describe('create with tags', () => {
+  it('normalises tags on create and rejects too many', async () => {
+    const auth = { Authorization: `Bearer ${await registerAndLogin('tags@example.com')}` };
+    const d = await saveDiagram(auth, { tags: [' Infra', 'infra', 'AWS'] });
+    expect(d.tags).toEqual(['infra', 'aws']);
+
+    const tooMany = await request(app)
+      .post('/api/diagrams')
+      .set(auth)
+      .send({
+        sourceText: 'x',
+        diagramType: 'flowchart',
+        mermaidSyntax: 'flowchart TD\nA-->B',
+        tags: Array.from({ length: 11 }, (_, i) => `t${i}`),
+      });
+    expect(tooMany.status).toBe(400);
+  });
+});

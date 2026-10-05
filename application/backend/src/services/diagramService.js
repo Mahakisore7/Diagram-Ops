@@ -137,6 +137,7 @@ async function saveForUser(userId, dto) {
     mermaidSyntax: dto.mermaidSyntax,
     providerUsed: dto.providerUsed,
     generationMs: dto.generationMs,
+    tags: dto.tags || [],
   });
 }
 
