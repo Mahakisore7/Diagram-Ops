@@ -16,5 +16,7 @@ Each file here records one consequential, hard-to-reverse decision: the problem,
 | [0009](0009-provider-behind-interface.md) | LLM providers implement a shared interface |
 | [0010](0010-mermaid-for-design-docs.md) | Design docs are written in Mermaid, not exported images |
 | [0011](0011-lazy-loaded-routes.md) | Frontend routes are lazy-loaded to keep the initial bundle within NFR-P3 |
+| [0012](0012-share-links-are-revocable-bearer-tokens.md) | Public share links are revocable bearer tokens |
+| [0013](0013-audit-log-is-best-effort.md) | The activity log is best-effort and expires after 90 days |
 
 New decision? Copy `template.md`, number it sequentially, add a row here.
