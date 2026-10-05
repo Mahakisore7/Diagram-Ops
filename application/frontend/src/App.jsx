@@ -1,44 +1,119 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet, RouterProvider, useParams } from 'react-router-dom';
+import { MotionConfig } from 'motion/react';
+import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
 import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import Navbar from './components/Navbar';
+import RouteError from './components/layout/RouteError';
+import { FullPageLoader, ProtectedRoute, PublicOnlyRoute } from './components/layout/RouteGuards';
+import { Skeleton } from './components/ui/primitives';
 
-// Lazy-loaded so each page becomes its own chunk. This matters most for
-// GeneratePage and DiagramDetailPage: they're the only two that import
-// MermaidRenderer, and mermaid alone accounts for roughly 250KB gzipped —
-// see docs/adr/0011-lazy-loaded-routes.md. Without this, a first-time
-// visitor would download mermaid's full weight just to see the login page,
-// which never touches a diagram.
+// Every page is lazy-loaded into its own chunk (docs/adr/0011). Mermaid
+// (~250KB gzipped) is only pulled in by pages that render diagrams, so the
+// landing and auth pages never download it.
+// The signed-in shell (sidebar, command palette) is its own chunk too, so
+// landing-page visitors never download it.
+const AppShell = lazy(() => import('./components/layout/AppShell'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
-const GeneratePage = lazy(() => import('./pages/GeneratePage'));
-const MyDiagramsPage = lazy(() => import('./pages/MyDiagramsPage'));
-const DiagramDetailPage = lazy(() => import('./pages/DiagramDetailPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const StudioPage = lazy(() => import('./pages/StudioPage'));
+const LibraryPage = lazy(() => import('./pages/LibraryPage'));
+const EditorPage = lazy(() => import('./pages/EditorPage'));
+const ActivityPage = lazy(() => import('./pages/ActivityPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const SharedDiagramPage = lazy(() => import('./pages/SharedDiagramPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 function PageFallback() {
-  return <div className="flex justify-center p-12 text-sm text-slate-400">Loading…</div>;
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-8 w-56" />
+      <Skeleton className="h-64 rounded-2xl" />
+    </div>
+  );
 }
+
+// Old Phase-1 URLs keep working for anyone with bookmarks.
+function LegacyDiagramRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/app/diagrams/${id}`} replace />;
+}
+
+function Root() {
+  return (
+    <Suspense fallback={<FullPageLoader />}>
+      <Outlet />
+    </Suspense>
+  );
+}
+
+function AppPages() {
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <Outlet />
+    </Suspense>
+  );
+}
+
+const router = createBrowserRouter([
+  {
+    element: <Root />,
+    errorElement: <RouteError />,
+    children: [
+      { path: '/', element: <LandingPage /> },
+      { path: '/s/:token', element: <SharedDiagramPage /> },
+      {
+        element: <PublicOnlyRoute />,
+        children: [
+          { path: '/login', element: <LoginPage /> },
+          { path: '/register', element: <RegisterPage /> },
+        ],
+      },
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: '/app',
+            element: <AppShell />,
+            children: [
+              {
+                element: <AppPages />,
+                errorElement: <RouteError />,
+                children: [
+                  { index: true, element: <DashboardPage /> },
+                  { path: 'new', element: <StudioPage /> },
+                  { path: 'diagrams', element: <LibraryPage /> },
+                  { path: 'diagrams/:id', element: <EditorPage /> },
+                  { path: 'activity', element: <ActivityPage /> },
+                  { path: 'settings', element: <Navigate to="/app/settings/profile" replace /> },
+                  { path: 'settings/:tab', element: <SettingsPage /> },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      { path: '/diagrams', element: <Navigate to="/app/diagrams" replace /> },
+      { path: '/diagrams/:id', element: <LegacyDiagramRedirect /> },
+      { path: '*', element: <NotFoundPage /> },
+    ],
+  },
+]);
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <div className="min-h-screen bg-slate-50">
-          <Navbar />
-          <Suspense fallback={<PageFallback />}>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-              <Route element={<ProtectedRoute />}>
-                <Route path="/" element={<GeneratePage />} />
-                <Route path="/diagrams" element={<MyDiagramsPage />} />
-                <Route path="/diagrams/:id" element={<DiagramDetailPage />} />
-              </Route>
-            </Routes>
-          </Suspense>
-        </div>
-      </AuthProvider>
-    </BrowserRouter>
+    // reducedMotion="user": every motion animation honours the OS
+    // "reduce motion" accessibility setting automatically.
+    <MotionConfig reducedMotion="user">
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </MotionConfig>
   );
 }

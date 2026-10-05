@@ -9,6 +9,20 @@ import tailwindcss from '@tailwindcss/vite';
 // per environment.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Long-lived vendor chunks: their hashes only change when the
+        // dependency version changes, so returning users keep them cached
+        // across app deploys instead of re-downloading React every release.
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-dom/client', 'scheduler', 'react-router-dom'],
+          motion: ['motion/react'],
+          http: ['axios'],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {
