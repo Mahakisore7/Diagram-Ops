@@ -4,7 +4,6 @@ pipeline {
     agent any
 
     environment {
-        ECR_REGISTRY = "368339042048.dkr.ecr.ap-south-1.amazonaws.com"
         BACKEND_REPO = "diagramforge-backend"
         AWS_REGION   = "ap-south-1"
     }
@@ -15,6 +14,10 @@ pipeline {
                 checkout scm
                 script {
                     env.GIT_SHA_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    // Resolved from the Jenkins server's own IAM role at run time,
+                    // not hardcoded: the same Jenkinsfile then works in any AWS
+                    // account (and survived the move to a new one unchanged).
+                    env.ECR_REGISTRY = sh(script: "aws sts get-caller-identity --query Account --output text", returnStdout: true).trim() + ".dkr.ecr.${env.AWS_REGION}.amazonaws.com"
                 }
             }
         }
