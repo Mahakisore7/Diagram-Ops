@@ -38,6 +38,34 @@ const diagramSchema = new mongoose.Schema(
     generationMs: {
       type: Number,
     },
+    isFavorite: {
+      type: Boolean,
+      default: false,
+    },
+    tags: {
+      type: [String],
+      default: [],
+    },
+    // Previous saved states, newest last, capped at MAX_VERSIONS by
+    // diagramService. select:false keeps them out of list/detail payloads;
+    // only the version-history endpoint asks for them explicitly.
+    versions: {
+      type: [
+        {
+          _id: false,
+          title: String,
+          mermaidSyntax: String,
+          savedAt: Date,
+        },
+      ],
+      select: false,
+      default: [],
+    },
+    // Unguessable token for a read-only public link. Absent means "not
+    // shared"; revoking a link deletes it, so an old URL stops working.
+    shareToken: {
+      type: String,
+    },
   },
   { timestamps: true },
 );
@@ -46,6 +74,9 @@ const diagramSchema = new mongoose.Schema(
 // sorts by recency, and Mongo can only use a compound index on a query
 // that filters on a *prefix* of its fields — see docs/system-design.md §3.
 diagramSchema.index({ userId: 1, createdAt: -1 });
+// Sparse: most diagrams are never shared, and only shared ones need the
+// index (and the uniqueness guarantee) at all.
+diagramSchema.index({ shareToken: 1 }, { unique: true, sparse: true });
 
 diagramSchema.set('toJSON', {
   transform: (_doc, ret) => {
@@ -56,3 +87,6 @@ diagramSchema.set('toJSON', {
 
 module.exports = mongoose.model('Diagram', diagramSchema);
 module.exports.DIAGRAM_TYPES = DIAGRAM_TYPES;
+module.exports.MAX_VERSIONS = 20;
+module.exports.MAX_TAGS = 10;
+module.exports.MAX_TAG_LENGTH = 30;

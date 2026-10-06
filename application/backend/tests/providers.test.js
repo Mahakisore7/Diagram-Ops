@@ -18,7 +18,8 @@ const mockClaudeGenerate = jest.fn();
 GroqProvider.mockImplementation(() => ({ name: 'groq', generate: mockGroqGenerate }));
 ClaudeProvider.mockImplementation(() => ({ name: 'claude', generate: mockClaudeGenerate }));
 
-const { generateWithFallback: generate } = require('../src/services/providers');
+const { generateWithFallback: generate, generateWithProvider } = require('../src/services/providers');
+const ApiError = require('../src/utils/ApiError');
 
 describe('generateWithFallback — docs/adr/0002, 0004', () => {
   beforeEach(() => {
@@ -51,17 +52,31 @@ describe('generateWithFallback — docs/adr/0002, 0004', () => {
     mockGroqGenerate.mockRejectedValue(new Error('rate limited'));
     costGuard.canUseFallback.mockResolvedValue(false);
 
-    await expect(generate('sys', [{ role: 'user', content: 'hi' }])).rejects.toMatchObject({
-      status: 429,
-      code: 'DAILY_CAP_EXCEEDED',
-    });
+    const err = await generate('sys', [{ role: 'user', content: 'hi' }]).catch((e) => e);
+    // Must be an ApiError, not just shaped like one - errorHandler maps any
+    // other error class to a generic 500 regardless of its status field.
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ status: 429, code: 'DAILY_CAP_EXCEEDED' });
     expect(mockClaudeGenerate).not.toHaveBeenCalled();
   });
 
-  it('surfaces failure when both providers fail', async () => {
-    mockGroqGenerate.mockRejectedValue(new Error('down'));
-    mockClaudeGenerate.mockRejectedValue(new Error('also down'));
+  it('returns 503 LLM_UNAVAILABLE when both providers fail, without leaking upstream details', async () => {
+    mockGroqGenerate.mockRejectedValue(new Error('401 Invalid API Key'));
+    mockClaudeGenerate.mockRejectedValue(new Error('Your credit balance is too low'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await expect(generate('sys', [{ role: 'user', content: 'hi' }])).rejects.toThrow('also down');
+    const err = await generate('sys', [{ role: 'user', content: 'hi' }]).catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ status: 503, code: 'LLM_UNAVAILABLE' });
+    expect(err.message).not.toMatch(/credit|API Key/i);
+  });
+
+  it('maps a sticky-retry provider failure to 503 as well', async () => {
+    mockGroqGenerate.mockRejectedValue(new Error('timeout'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const err = await generateWithProvider('groq', 'sys', []).catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.status).toBe(503);
   });
 });

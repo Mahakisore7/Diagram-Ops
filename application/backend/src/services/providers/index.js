@@ -2,16 +2,33 @@ const GroqProvider = require('./groqProvider');
 const ClaudeProvider = require('./claudeProvider');
 const { canUseFallback, recordUsage, dailyClaudeCallCap } = require('../costGuard');
 const { defaultProvider, fallbackProvider } = require('../../config/env');
+const ApiError = require('../../utils/ApiError');
 
 const providers = { groq: new GroqProvider(), claude: new ClaudeProvider() };
 
-class DailyCapExceededError extends Error {
+// Both errors below extend ApiError so the central error handler returns
+// them as-is (429 / 503 with a human-readable message). A plain Error with
+// a `status` field is NOT enough - errorHandler only trusts ApiError
+// instances and turns everything else into a generic 500.
+class DailyCapExceededError extends ApiError {
   constructor(provider, cap) {
-    super(`Daily call cap (${cap}) reached for "${provider}". Please try again tomorrow.`);
+    super(429, 'DAILY_CAP_EXCEEDED', `Daily call cap (${cap}) reached for "${provider}". Please try again tomorrow.`);
     this.name = 'DailyCapExceededError';
-    this.status = 429;
-    this.code = 'DAILY_CAP_EXCEEDED';
   }
+}
+
+// The upstream provider's own message (e.g. "401 Invalid API Key", "credit
+// balance too low") is logged server-side but never sent to the client: it
+// describes our infrastructure, not anything the user can act on.
+function providerUnavailable(providerName, err) {
+  console.error(
+    JSON.stringify({ level: 'error', message: `Provider "${providerName}" failed`, error: err?.message }),
+  );
+  return new ApiError(
+    503,
+    'LLM_UNAVAILABLE',
+    'The AI service is temporarily unavailable. Please try again in a few minutes.',
+  );
 }
 
 // See the two sequence diagrams in docs/system-design.md §5.2 — this
@@ -36,7 +53,12 @@ async function generateWithFallback(systemPrompt, messages) {
     const allowed = await canUseFallback(fallback.name);
     if (!allowed) throw new DailyCapExceededError(fallback.name, dailyClaudeCallCap);
 
-    const text = await fallback.generate(systemPrompt, messages);
+    let text;
+    try {
+      text = await fallback.generate(systemPrompt, messages);
+    } catch (fallbackErr) {
+      throw providerUnavailable(fallback.name, fallbackErr);
+    }
     await recordUsage(fallback.name);
     return { text, providerUsed: fallback.name };
   }
@@ -48,7 +70,11 @@ async function generateWithFallback(systemPrompt, messages) {
 // free-tier call, not escalate to the paid one.
 async function generateWithProvider(providerName, systemPrompt, messages) {
   const provider = providers[providerName];
-  return provider.generate(systemPrompt, messages);
+  try {
+    return await provider.generate(systemPrompt, messages);
+  } catch (err) {
+    throw providerUnavailable(provider.name, err);
+  }
 }
 
 module.exports = { generateWithFallback, generateWithProvider, providers, DailyCapExceededError };

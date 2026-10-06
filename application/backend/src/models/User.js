@@ -13,6 +13,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // Optional display name for the profile page. Email stays the login
+    // identifier; this is presentation only, so it is never used in queries.
+    name: {
+      type: String,
+      trim: true,
+      maxlength: 80,
+      default: '',
+    },
   },
   { timestamps: true },
 );

@@ -1,1 +1,137 @@
 @import 'tailwindcss';
+
+/* Class-based dark mode: ThemeContext toggles `.dark` on <html>, so the
+   user's explicit choice (light / dark / system) always wins over the OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Brand ramp (indigo -> violet). UI accents only; charts use the
+     validated data palette below, never these. */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+
+  --animate-gradient-x: gradient-x 12s ease infinite;
+  --animate-float: float 8s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-marquee: marquee 40s linear infinite;
+
+  @keyframes gradient-x {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(0, -24px, 0) scale(1.05); }
+  }
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+}
+
+/* Data-viz palette (validated reference palette, light + dark steps).
+   Charts reference these roles, so both modes swap in one place. */
+:root {
+  --viz-series-1: #2a78d6;
+  --viz-series-2: #eb6834;
+  --viz-grid: #e5e7eb;
+  --viz-good: #008300;
+  --viz-warning: #eda100;
+  --viz-critical: #e34948;
+}
+.dark {
+  --viz-series-1: #3987e5;
+  --viz-series-2: #d95926;
+  --viz-grid: #27272a;
+  --viz-good: #2f9e44;
+  --viz-warning: #c98500;
+  --viz-critical: #e66767;
+}
+
+html {
+  color-scheme: light;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
+}
+
+::selection {
+  @apply bg-brand-500/25;
+}
+
+/* Visible keyboard focus everywhere, without a ring on mouse clicks. */
+:focus-visible {
+  @apply outline-2 outline-offset-2 outline-brand-500;
+}
+
+/* Subtle background grid used on the landing hero and auth panel. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(113 113 122 / 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(113 113 122 / 0.12) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgb(228 228 231 / 0.6) 25%, rgb(244 244 245) 37%, rgb(228 228 231 / 0.6) 63%);
+  background-size: 400% 100%;
+  @apply animate-shimmer rounded-md;
+}
+.dark .skeleton {
+  background: linear-gradient(90deg, rgb(39 39 42 / 0.8) 25%, rgb(63 63 70 / 0.8) 37%, rgb(39 39 42 / 0.8) 63%);
+  background-size: 400% 100%;
+}
+
+/* Mermaid output: scale to its container instead of overflowing it. */
+.diagram-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Canvas variant: fit inside the box in BOTH directions and centre. The
+   SVG keeps Mermaid's own max-width (its natural size), so small diagrams
+   are never blown up; viewBox + default preserveAspectRatio letterbox it. */
+.diagram-fit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.diagram-fit svg {
+  height: 100%;
+  max-height: 100%;
+}
+
+.thin-scrollbar {
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

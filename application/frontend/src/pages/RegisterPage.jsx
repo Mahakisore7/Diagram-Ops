@@ -1,75 +1,119 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AlertCircle } from 'lucide-react';
+import AuthLayout from '../components/auth/AuthLayout';
+import PasswordStrength from '../components/auth/PasswordStrength';
+import { meetsPasswordRules } from '../lib/password';
+import Button from '../components/ui/Button';
+import { Field, Input, PasswordInput } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function RegisterPage() {
-  const { register, login } = useAuth();
+  useDocumentTitle('Create account');
+  const { register } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const canSubmit = meetsPasswordRules(password) && agreed && email.trim();
+
+  async function handleSubmit(e) {
     e.preventDefault();
+    if (!canSubmit) return;
     setError(null);
     setSubmitting(true);
     try {
-      await register(email, password);
-      // Register (FR-A1) and login (FR-A2) are separate endpoints — the
-      // backend deliberately doesn't return a token on registration, so
-      // this chains straight into a login for a one-step signup UX
-      // instead of asking the user to re-type what they just typed.
-      await login(email, password);
-      navigate('/');
+      await register(email.trim(), password, name.trim());
+      toast.success('Account created', 'Let’s generate your first diagram.');
+      navigate('/app/new', { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
       setSubmitting(false);
     }
-  };
+  }
 
   return (
-    <div className="mx-auto mt-16 max-w-sm px-4">
-      <h1 className="text-2xl font-semibold text-slate-900">Create an account</h1>
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Email</label>
+    <AuthLayout
+      title="Create your account"
+      subtitle="Start turning descriptions into diagrams — free."
+      footer={
+        <>
+          Already have an account?{' '}
+          <Link to="/login" className="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400">
+            Sign in
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {error && (
+          <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+            {error}
+          </div>
+        )}
+        <Field label="Full name" hint="Optional — shown on your profile.">
+          {(props) => (
+            <Input
+              {...props}
+              autoComplete="name"
+              autoFocus
+              maxLength={80}
+              placeholder="Ada Lovelace"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Work email">
+          {(props) => (
+            <Input
+              {...props}
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Password">
+          {(props) => (
+            <PasswordInput
+              {...props}
+              required
+              minLength={8}
+              maxLength={128}
+              autoComplete="new-password"
+              placeholder="Create a strong password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          )}
+        </Field>
+        <PasswordStrength password={password} />
+        <label className="flex items-start gap-2.5 text-sm text-zinc-600 dark:text-zinc-400">
           <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 size-4 rounded border-zinc-300 accent-brand-600"
           />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-700">Password</label>
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-          />
-          <p className="mt-1 text-xs text-slate-400">8-128 characters, at least one letter and one digit.</p>
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-        >
+          I understand diagrams are generated by third-party AI providers (Groq, Anthropic) from the text I submit.
+        </label>
+        <Button type="submit" className="w-full" size="lg" loading={submitting} disabled={!canSubmit}>
           {submitting ? 'Creating account…' : 'Create account'}
-        </button>
+        </Button>
       </form>
-      <p className="mt-4 text-sm text-slate-500">
-        Already have an account?{' '}
-        <Link to="/login" className="font-medium text-slate-900 underline">
-          Log in
-        </Link>
-      </p>
-    </div>
+    </AuthLayout>
   );
 }

@@ -2,6 +2,7 @@ const express = require('express');
 const helmet = require('helmet');
 const authRoutes = require('./routes/authRoutes');
 const diagramRoutes = require('./routes/diagramRoutes');
+const publicRoutes = require('./routes/publicRoutes');
 const requestId = require('./middleware/requestId');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 const { isConnected } = require('./db/connect');
@@ -33,6 +34,8 @@ function createApp() {
   });
 
   app.use('/api/auth', authRoutes);
+  // Before the authenticated /api router - see routes/publicRoutes.js.
+  app.use('/api/public', publicRoutes);
   app.use('/api', diagramRoutes);
 
   app.use(notFoundHandler);
