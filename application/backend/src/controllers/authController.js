@@ -2,6 +2,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const { isValidEmail, isValidPassword } = require('../utils/validators');
 const authService = require('../services/authService');
+const { AVATAR_STYLES } = require('../models/User');
 const activity = require('../services/activityService');
 
 const MAX_NAME_LENGTH = 80;
@@ -52,10 +53,34 @@ const me = asyncHandler(async (req, res) => {
   res.status(200).json({ user });
 });
 
+// Avatar is a style from a fixed list plus a short seed string. Validated
+// here so a bad value is a clear 400, not a Mongoose enum error (500).
+function validateAvatar(avatar) {
+  if (avatar === undefined) return;
+  const ok =
+    avatar &&
+    typeof avatar === 'object' &&
+    AVATAR_STYLES.includes(avatar.style) &&
+    typeof avatar.seed === 'string' &&
+    avatar.seed.length > 0 &&
+    avatar.seed.length <= 64;
+  if (!ok) {
+    throw new ApiError(
+      400,
+      'VALIDATION_ERROR',
+      `avatar must be { style: one of ${AVATAR_STYLES.join(', ')}, seed: 1-64 characters }.`,
+    );
+  }
+}
+
 const updateMe = asyncHandler(async (req, res) => {
-  const { name } = req.body;
+  const { name, avatar } = req.body;
   validateName(name);
-  const user = await authService.updateProfile(req.userId, { name: name?.trim() });
+  validateAvatar(avatar);
+  const user = await authService.updateProfile(req.userId, {
+    name: name?.trim(),
+    avatar: avatar && { style: avatar.style, seed: avatar.seed },
+  });
   await activity.record(req, req.userId, activity.ACTIONS.PROFILE_UPDATE);
   res.status(200).json({ user });
 });
