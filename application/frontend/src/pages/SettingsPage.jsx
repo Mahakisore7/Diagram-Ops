@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Database, Download, KeyRound, LogOut, Monitor, Moon, Palette, ShieldCheck, Sun, Trash2, User } from 'lucide-react';
+import { Check, Database, Download, KeyRound, LogOut, Monitor, Moon, Palette, ShieldCheck, Shuffle, Sun, Trash2, User } from 'lucide-react';
 import { authApi, systemApi } from '../api';
+import Avatar from '../components/ui/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
@@ -10,13 +11,14 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import Button from '../components/ui/Button';
 import { Field, Input, PasswordInput, Select } from '../components/ui/Input';
 import { ConfirmDialog } from '../components/ui/Modal';
-import { Avatar, Badge, Card, PageHeader, Skeleton } from '../components/ui/primitives';
+import { Badge, Card, PageHeader, Skeleton } from '../components/ui/primitives';
 import PasswordStrength from '../components/auth/PasswordStrength';
 import { meetsPasswordRules } from '../lib/password';
 import ActivityItem from '../components/activity/ActivityItem';
 import { DIAGRAM_TYPES, TYPE_KEYS } from '../lib/diagramTypes';
 import { downloadText } from '../lib/exporters';
 import { cn, formatDate } from '../lib/utils';
+import { AVATAR_STYLES, DEFAULT_STYLE, avatarDataUri, randomSeed } from '../lib/avatars';
 
 const TABS = [
   { key: 'profile', label: 'Profile', icon: User },
@@ -40,18 +42,82 @@ function Section({ title, description, children, footer }) {
   );
 }
 
+// Avatar studio: pick a drawing style, then flip through generated faces.
+// Six candidates per page; "Shuffle" draws six new seeds.
+function AvatarPicker({ value, onChange }) {
+  const [candidates, setCandidates] = useState(() => [value.seed, ...Array.from({ length: 5 }, randomSeed)]);
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Avatar style">
+        {Object.entries(AVATAR_STYLES).map(([key, def]) => (
+          <button
+            key={key}
+            type="button"
+            role="radio"
+            aria-checked={value.style === key}
+            onClick={() => onChange({ ...value, style: key })}
+            className={cn(
+              'border px-2.5 py-1 font-mono text-[11px] tracking-wide uppercase transition',
+              value.style === key
+                ? 'border-zinc-900 bg-zinc-900 text-zinc-50 dark:border-zinc-50 dark:bg-zinc-50 dark:text-zinc-950'
+                : 'border-zinc-300 text-zinc-600 hover:border-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-300',
+            )}
+          >
+            {def.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {candidates.map((seed) => {
+          const selected = seed === value.seed;
+          return (
+            <button
+              key={seed}
+              type="button"
+              onClick={() => onChange({ ...value, seed })}
+              aria-label={`Choose avatar ${seed}`}
+              aria-pressed={selected}
+              className={cn(
+                'relative border p-1 transition',
+                selected ? 'border-brand-600 dark:border-brand-400' : 'border-zinc-300 hover:border-zinc-900 dark:border-zinc-700 dark:hover:border-zinc-300',
+              )}
+            >
+              <img src={avatarDataUri(value.style, seed)} alt="" className="size-14 bg-zinc-100 dark:bg-zinc-800" draggable={false} />
+              {selected && <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center bg-brand-600 text-white"><Check className="size-3" /></span>}
+            </button>
+          );
+        })}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setCandidates([value.seed, ...Array.from({ length: 5 }, randomSeed)])}
+        >
+          <Shuffle /> Shuffle
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ProfileTab() {
   const { user, setUser } = useAuth();
   const toast = useToast();
+  const initialAvatar = {
+    style: user.avatar?.style || DEFAULT_STYLE,
+    seed: user.avatar?.seed || user.email,
+  };
   const [name, setName] = useState(user.name || '');
+  const [avatar, setAvatar] = useState(initialAvatar);
   const [saving, setSaving] = useState(false);
-  const dirty = name.trim() !== (user.name || '');
+  const avatarChanged = avatar.style !== initialAvatar.style || avatar.seed !== initialAvatar.seed;
+  const dirty = name.trim() !== (user.name || '') || avatarChanged;
 
   async function save(e) {
     e.preventDefault();
     setSaving(true);
     try {
-      const updated = await authApi.updateProfile({ name: name.trim() });
+      const updated = await authApi.updateProfile({ name: name.trim(), ...(avatarChanged ? { avatar } : {}) });
       setUser(updated);
       toast.success('Profile updated');
     } catch (err) {
@@ -62,7 +128,19 @@ function ProfileTab() {
   }
 
   return (
-    <form onSubmit={save}>
+    <form onSubmit={save} className="space-y-6">
+      <Section
+        title="Portrait"
+        description="A generated, illustrated avatar. Nothing is uploaded — only the style and seed are saved."
+      >
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+          <div className="relative shrink-0 self-start border border-zinc-900 bg-white p-2 shadow-[5px_5px_0_0_var(--color-zinc-900)] dark:border-zinc-100 dark:bg-zinc-900 dark:shadow-[5px_5px_0_0_rgb(4_14_26/0.7)]">
+            <img src={avatarDataUri(avatar.style, avatar.seed)} alt="Your avatar" className="size-28 bg-zinc-100 dark:bg-zinc-800" draggable={false} />
+            <p className="mt-2 text-center font-mono text-[9px] tracking-widest text-zinc-500 uppercase">Fig. — You</p>
+          </div>
+          <AvatarPicker value={avatar} onChange={setAvatar} />
+        </div>
+      </Section>
       <Section
         title="Personal information"
         description="How you appear across DiagramForge."
@@ -73,9 +151,9 @@ function ProfileTab() {
         }
       >
         <div className="flex items-center gap-4">
-          <Avatar user={{ ...user, name }} size="lg" />
+          <Avatar user={user} src={avatarDataUri(avatar.style, avatar.seed)} size="md" />
           <div>
-            <p className="font-medium text-zinc-900 dark:text-white">{name.trim() || user.email}</p>
+            <p className="font-medium text-zinc-900 dark:text-zinc-50">{name.trim() || user.email}</p>
             <p className="text-sm text-zinc-500">Member since {formatDate(user.createdAt, { month: 'long', year: 'numeric' })}</p>
           </div>
         </div>

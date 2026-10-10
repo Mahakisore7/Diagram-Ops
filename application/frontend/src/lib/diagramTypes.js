@@ -15,50 +15,50 @@ export const DIAGRAM_TYPES = {
     label: 'Flowchart',
     icon: GitBranch,
     description: 'Processes, decisions and branching logic',
-    accent: 'from-sky-500 to-blue-600',
+    code: 'FC',
   },
   sequence: {
     label: 'Sequence',
     icon: ArrowLeftRight,
     description: 'Messages between services over time',
-    accent: 'from-violet-500 to-purple-600',
+    code: 'SQ',
   },
   class: {
     label: 'Class',
     icon: Boxes,
     description: 'Objects, attributes and relationships',
-    accent: 'from-amber-500 to-orange-600',
+    code: 'CL',
   },
   er: {
     label: 'Entity-Relationship',
     icon: Database,
     description: 'Tables, keys and cardinality',
-    accent: 'from-emerald-500 to-teal-600',
+    code: 'ER',
   },
   state: {
     label: 'State',
     icon: Workflow,
     description: 'Lifecycle states and transitions',
-    accent: 'from-pink-500 to-rose-600',
+    code: 'ST',
   },
   gantt: {
     label: 'Gantt',
     icon: CalendarRange,
     description: 'Timelines, phases and milestones',
-    accent: 'from-cyan-500 to-sky-600',
+    code: 'GT',
   },
   mindmap: {
     label: 'Mind map',
     icon: Network,
     description: 'Ideas branching from a central topic',
-    accent: 'from-fuchsia-500 to-pink-600',
+    code: 'MM',
   },
 };
 
 export const TYPE_KEYS = Object.keys(DIAGRAM_TYPES);
 
 export function typeMeta(type) {
-  return DIAGRAM_TYPES[type] || { label: type, icon: GitBranch, description: '', accent: 'from-zinc-500 to-zinc-600' };
+  return DIAGRAM_TYPES[type] || { label: type, icon: GitBranch, description: '', code: '??' };
 }
 
 // Starter prompts for the Studio. Each is a realistic engineering request,

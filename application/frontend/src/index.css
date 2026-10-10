@@ -1,39 +1,75 @@
 @import 'tailwindcss';
 
+/* ==========================================================================
+   DiagramForge - "Drafting Table" design language
+   --------------------------------------------------------------------------
+   Light = PAPER: warm drafting stock, graphite ink, one vermilion signal
+   colour (an engineering approval stamp). Dark = CYANOTYPE: Prussian-blue
+   blueprint with pale line work. Square corners, hairline rules, hard
+   plotter-offset shadows, no gradients, no glows.
+
+   The neutral and brand ramps are REMAPPED here rather than renamed, so
+   every existing `zinc-*` / `brand-*` utility in the app picks up the new
+   identity from this one file.
+   ========================================================================== */
+
 /* Class-based dark mode: ThemeContext toggles `.dark` on <html>, so the
    user's explicit choice (light / dark / system) always wins over the OS. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --font-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
 
-  /* Brand ramp (indigo -> violet). UI accents only; charts use the
-     validated data palette below, never these. */
-  --color-brand-50: #eef2ff;
-  --color-brand-100: #e0e7ff;
-  --color-brand-200: #c7d2fe;
-  --color-brand-300: #a5b4fc;
-  --color-brand-400: #818cf8;
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
-  --color-brand-700: #4338ca;
-  --color-brand-800: #3730a3;
-  --color-brand-900: #312e81;
+  /* PAPER neutrals (light). Redefined below for .dark (cyanotype). */
+  --color-white: #fdfcf8;
+  --color-zinc-50: #f6f3ec;
+  --color-zinc-100: #eeeae0;
+  --color-zinc-200: #e0d9cb;
+  --color-zinc-300: #cbc2b1;
+  --color-zinc-400: #a1988a;
+  --color-zinc-500: #776f62;
+  --color-zinc-600: #5a5448;
+  --color-zinc-700: #403c33;
+  --color-zinc-800: #2b2923;
+  --color-zinc-900: #1c1b17;
+  --color-zinc-950: #12110e;
 
-  --animate-gradient-x: gradient-x 12s ease infinite;
-  --animate-float: float 8s ease-in-out infinite;
+  /* VERMILION signal (approval-stamp red-orange). 600 is AA on paper. */
+  --color-brand-50: #fdf2ed;
+  --color-brand-100: #fbe0d4;
+  --color-brand-200: #f6bea7;
+  --color-brand-300: #f0946f;
+  --color-brand-400: #ea6c45;
+  --color-brand-500: #e0502a;
+  --color-brand-600: #c63f19;
+  --color-brand-700: #a33314;
+  --color-brand-800: #812a15;
+  --color-brand-900: #682415;
+
+  /* Drafting geometry: near-square corners everywhere except true circles. */
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
+  --radius-2xl: 4px;
+  --radius-3xl: 6px;
+
+  /* Plotter shadows: crisp offsets, never blurred glows. */
+  --shadow-xs: 0 1px 0 0 rgb(28 27 23 / 0.04);
+  --shadow-sm: 0 1px 0 0 rgb(28 27 23 / 0.06);
+  --shadow-md: 3px 3px 0 0 rgb(28 27 23 / 0.08);
+  --shadow-lg: 4px 4px 0 0 rgb(28 27 23 / 0.1);
+  --shadow-xl: 6px 6px 0 0 rgb(28 27 23 / 0.1);
+  --shadow-2xl: 8px 8px 0 0 rgb(28 27 23 / 0.12);
+
   --animate-shimmer: shimmer 1.6s linear infinite;
-  --animate-marquee: marquee 40s linear infinite;
+  --animate-marquee: marquee 50s linear infinite;
+  --animate-spin-slow: spin 40s linear infinite;
+  --animate-blink: blink 1.1s steps(1) infinite;
 
-  @keyframes gradient-x {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-  }
-  @keyframes float {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-    50% { transform: translate3d(0, -24px, 0) scale(1.05); }
-  }
   @keyframes shimmer {
     from { background-position: -200% 0; }
     to { background-position: 200% 0; }
@@ -42,25 +78,57 @@
     from { transform: translateX(0); }
     to { transform: translateX(-50%); }
   }
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
 }
 
-/* Data-viz palette (validated reference palette, light + dark steps).
-   Charts reference these roles, so both modes swap in one place. */
+/* CYANOTYPE: the same ramp names, stepped as blueprint blues. */
+.dark {
+  --color-white: #f3f7fb;
+  --color-zinc-50: #eef4f9;
+  --color-zinc-100: #d8e4ee;
+  --color-zinc-200: #b6c9da;
+  --color-zinc-300: #8fa9c1;
+  --color-zinc-400: #6c8aa6;
+  --color-zinc-500: #52708c;
+  --color-zinc-600: #3b5874;
+  --color-zinc-700: #2b4661;
+  --color-zinc-800: #1e3650;
+  --color-zinc-900: #152b42;
+  --color-zinc-950: #0e2236;
+
+  --color-brand-300: #ff9f7c;
+  --color-brand-400: #ff7f55;
+  --color-brand-500: #f6643a;
+
+  --shadow-md: 3px 3px 0 0 rgb(4 14 26 / 0.45);
+  --shadow-lg: 4px 4px 0 0 rgb(4 14 26 / 0.5);
+  --shadow-xl: 6px 6px 0 0 rgb(4 14 26 / 0.55);
+  --shadow-2xl: 8px 8px 0 0 rgb(4 14 26 / 0.6);
+}
+
+/* Data-viz palette (validated reference palette): blue reads as blueprint
+   ink and orange as the stamp, so charts belong to the same family. */
 :root {
   --viz-series-1: #2a78d6;
   --viz-series-2: #eb6834;
-  --viz-grid: #e5e7eb;
+  --viz-grid: #e0d9cb;
   --viz-good: #008300;
   --viz-warning: #eda100;
   --viz-critical: #e34948;
+  --grid-minor: rgb(28 27 23 / 0.05);
+  --grid-major: rgb(28 27 23 / 0.09);
 }
 .dark {
   --viz-series-1: #3987e5;
   --viz-series-2: #d95926;
-  --viz-grid: #27272a;
+  --viz-grid: #2b4661;
   --viz-good: #2f9e44;
   --viz-warning: #c98500;
   --viz-critical: #e66767;
+  --grid-minor: rgb(182 201 218 / 0.06);
+  --grid-major: rgb(182 201 218 / 0.11);
 }
 
 html {
@@ -73,11 +141,12 @@ html.dark {
 }
 
 body {
-  @apply bg-white font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
+  @apply bg-zinc-50 font-sans text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100;
 }
 
 ::selection {
-  @apply bg-brand-500/25;
+  background: var(--color-brand-200);
+  color: var(--color-zinc-950);
 }
 
 /* Visible keyboard focus everywhere, without a ring on mouse clicks. */
@@ -85,21 +154,46 @@ body {
   @apply outline-2 outline-offset-2 outline-brand-500;
 }
 
-/* Subtle background grid used on the landing hero and auth panel. */
-.bg-grid {
+/* Lucide icons drawn with a finer pen, to match the hairline language. */
+svg.lucide {
+  stroke-width: 1.6;
+}
+
+/* Graph paper: fine 8px grid with a heavier 40px major grid. */
+.graph-paper {
   background-image:
-    linear-gradient(to right, rgb(113 113 122 / 0.12) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(113 113 122 / 0.12) 1px, transparent 1px);
-  background-size: 48px 48px;
+    linear-gradient(to right, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-minor) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-minor) 1px, transparent 1px);
+  background-size:
+    40px 40px,
+    40px 40px,
+    8px 8px,
+    8px 8px;
+}
+.dot-grid {
+  background-image: radial-gradient(circle, var(--grid-major) 1px, transparent 1.2px);
+  background-size: 16px 16px;
+}
+
+/* Small uppercase technical label, e.g. "FIG. 02 - SEQUENCE". */
+.label-mono {
+  @apply font-mono text-[10.5px] font-medium tracking-[0.14em] text-zinc-500 uppercase;
+}
+
+/* Editorial display type. */
+.display {
+  @apply font-serif font-normal tracking-[-0.01em];
 }
 
 .skeleton {
-  background: linear-gradient(90deg, rgb(228 228 231 / 0.6) 25%, rgb(244 244 245) 37%, rgb(228 228 231 / 0.6) 63%);
+  background: linear-gradient(90deg, var(--color-zinc-100) 25%, var(--color-zinc-200) 37%, var(--color-zinc-100) 63%);
   background-size: 400% 100%;
-  @apply animate-shimmer rounded-md;
+  @apply animate-shimmer rounded-sm;
 }
 .dark .skeleton {
-  background: linear-gradient(90deg, rgb(39 39 42 / 0.8) 25%, rgb(63 63 70 / 0.8) 37%, rgb(39 39 42 / 0.8) 63%);
+  background: linear-gradient(90deg, var(--color-zinc-900) 25%, var(--color-zinc-800) 37%, var(--color-zinc-900) 63%);
   background-size: 400% 100%;
 }
 

@@ -3,18 +3,25 @@ import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
+// Primary is solid ink (graphite on paper, pale line on blueprint). The
+// single vermilion "accent" is reserved for the one action per screen that
+// matters most - it presses down onto a hard plotter shadow like a stamp.
+const ACCENT =
+  'bg-brand-600 text-white shadow-[3px_3px_0_0_var(--color-zinc-900)] hover:-translate-x-px hover:-translate-y-px hover:shadow-[4px_4px_0_0_var(--color-zinc-900)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none dark:bg-brand-500 dark:shadow-[3px_3px_0_0_var(--color-zinc-50)] dark:hover:shadow-[4px_4px_0_0_var(--color-zinc-50)]';
+
 const VARIANTS = {
   primary:
-    'bg-brand-600 text-white shadow-sm shadow-brand-600/20 hover:bg-brand-500 active:bg-brand-700 disabled:bg-brand-600/50',
+    'bg-zinc-900 text-zinc-50 hover:bg-zinc-800 active:bg-zinc-950 dark:bg-zinc-50 dark:text-zinc-950 dark:hover:bg-white',
+  accent: ACCENT,
+  // Kept as an alias so older call sites read the same; no gradients remain.
+  gradient: ACCENT,
   secondary:
-    'border border-zinc-200 bg-white text-zinc-800 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800',
+    'border border-zinc-300 bg-white text-zinc-800 hover:border-zinc-900 hover:bg-white dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-300',
   ghost:
-    'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100',
-  danger: 'bg-red-600 text-white shadow-sm hover:bg-red-500 active:bg-red-700 disabled:bg-red-600/50',
+    'text-zinc-600 hover:bg-zinc-200/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100',
+  danger: 'bg-red-700 text-white hover:bg-red-600 active:bg-red-800',
   'danger-outline':
-    'border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40',
-  gradient:
-    'bg-gradient-to-r from-brand-600 via-violet-600 to-fuchsia-600 bg-[length:200%_100%] text-white shadow-lg shadow-brand-600/25 animate-gradient-x hover:shadow-brand-600/40',
+    'border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10',
 };
 
 const SIZES = {

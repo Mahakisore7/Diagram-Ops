@@ -42,6 +42,7 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout
+      eyebrow="Sheet 02 — New account"
       title="Create your account"
       subtitle="Start turning descriptions into diagrams — free."
       footer={

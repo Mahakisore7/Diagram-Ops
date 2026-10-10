@@ -43,7 +43,7 @@ function TypePicker({ value, onChange }) {
             {o.key ? (
               <TypeIcon type={o.key} size="sm" className="size-6 rounded-md [&_svg]:size-3" />
             ) : (
-              <span className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-brand-500 to-fuchsia-500 text-white">
+              <span className="flex size-6 items-center justify-center bg-zinc-900 text-zinc-50 dark:bg-zinc-50 dark:text-zinc-950">
                 <Wand2 className="size-3" />
               </span>
             )}
@@ -64,22 +64,27 @@ function GeneratingState() {
     return () => clearInterval(id);
   }, []);
   return (
-    <div className="flex h-full min-h-[28rem] flex-col items-center justify-center gap-6 p-8">
-      <div className="relative">
-        <div className="absolute inset-0 animate-ping rounded-full bg-brand-500/20" />
-        <div className="relative flex size-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-fuchsia-500 text-white shadow-lg shadow-brand-500/30">
-          <Sparkles className="size-7 animate-pulse" />
-        </div>
-      </div>
+    <div className="graph-paper flex h-full min-h-[28rem] flex-1 flex-col items-center justify-center gap-6 p-8">
+      {/* A pen plotter at work: a crosshair traces the sheet while dashed
+          outlines of the future diagram appear. */}
+      <svg viewBox="0 0 240 150" className="w-full max-w-xs" aria-hidden>
+        <g fill="none" className="stroke-zinc-400 dark:stroke-zinc-500" strokeWidth="1" strokeDasharray="4 3">
+          <motion.rect x="20" y="20" width="70" height="28" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2, repeat: Infinity, repeatType: 'reverse', duration: 1.4 }} />
+          <motion.rect x="150" y="20" width="70" height="28" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, repeat: Infinity, repeatType: 'reverse', duration: 1.4 }} />
+          <motion.rect x="85" y="100" width="70" height="28" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0, repeat: Infinity, repeatType: 'reverse', duration: 1.4 }} />
+        </g>
+        <motion.g
+          animate={{ x: [0, 150, 75, 0], y: [0, 0, 80, 0] }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <path d="M55 22 v24 M43 34 h24" className="stroke-brand-600 dark:stroke-brand-400" strokeWidth="1.5" />
+          <circle cx="55" cy="34" r="5" fill="none" className="stroke-brand-600 dark:stroke-brand-400" strokeWidth="1.5" />
+        </motion.g>
+      </svg>
       <div className="text-center">
-        <p className="font-medium text-zinc-900 dark:text-white">Generating your diagram…</p>
-        <p className="mt-1 text-sm text-zinc-500 tabular-nums">{(elapsed / 1000).toFixed(1)}s · usually a few seconds</p>
-      </div>
-      <div className="grid w-full max-w-sm grid-cols-3 gap-3 opacity-70">
-        <div className="skeleton h-10" />
-        <div className="skeleton h-10" />
-        <div className="skeleton h-10" />
-        <div className="skeleton col-start-2 h-10" />
+        <p className="label-mono">Plotting</p>
+        <p className="display mt-1.5 text-3xl text-zinc-900 dark:text-zinc-50">Drawing your diagram…</p>
+        <p className="mt-2 font-mono text-xs text-zinc-500 tabular-nums">T + {(elapsed / 1000).toFixed(1)} s · usually 1–2 s</p>
       </div>
     </div>
   );
@@ -352,17 +357,18 @@ export default function StudioPage() {
               </div>
             </>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center p-10 text-center">
-              <div className="relative mb-6">
-                <div className="absolute -inset-6 rounded-full bg-gradient-to-r from-brand-500/20 to-fuchsia-500/20 blur-2xl" />
-                <div className="relative flex size-16 items-center justify-center rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                  <Wand2 className="size-7 text-brand-500" />
-                </div>
+            <div className="graph-paper flex flex-1 p-6">
+              <div className="relative flex flex-1 flex-col items-center justify-center border border-dashed border-zinc-400 p-10 text-center dark:border-zinc-600">
+                <span className="label-mono absolute top-3 left-3">Drawing area</span>
+                <span className="label-mono absolute right-3 bottom-3">Awaiting brief</span>
+                <Wand2 className="size-7 text-zinc-400" />
+                <h2 className="display mt-5 text-4xl text-zinc-900 dark:text-zinc-50">
+                  An empty sheet, <span className="italic">for now.</span>
+                </h2>
+                <p className="mt-3 max-w-sm text-sm text-zinc-500">
+                  Write a brief or pick a template, then press <Kbd>{modKey}</Kbd> <Kbd>↵</Kbd> to plot it.
+                </p>
               </div>
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">Your diagram will appear here</h2>
-              <p className="mt-1 max-w-sm text-sm text-zinc-500">
-                Write a description or pick a template, then press <Kbd>{modKey}</Kbd> <Kbd>↵</Kbd> to generate.
-              </p>
             </div>
           )}
         </Card>
