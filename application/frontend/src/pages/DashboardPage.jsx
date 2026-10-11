@@ -33,7 +33,7 @@ function StatTile({ icon: Icon, label, value, sub, delay = 0, to }) {
           <Icon className="size-4" />
         </span>
       </div>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-zinc-900 tabular-nums dark:text-white">{value}</p>
+      <p className="display mt-3 text-5xl leading-none text-zinc-900 tabular-nums dark:text-zinc-50">{value}</p>
       {sub && <p className="mt-1 text-xs text-zinc-500">{sub}</p>}
     </motion.div>
   );
@@ -67,8 +67,10 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">{greeting()},</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-white">{displayName(user)} 👋</h1>
+          <p className="label-mono">{greeting()} · {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+          <h1 className="display mt-2 text-5xl leading-none text-zinc-900 dark:text-zinc-50">
+            Hello, <span className="italic">{displayName(user)}.</span>
+          </h1>
         </div>
         <div className="flex gap-2">
           <Button to="/app/diagrams" variant="secondary">

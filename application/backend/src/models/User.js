@@ -1,5 +1,8 @@
 const mongoose = require('mongoose');
 
+// Must match the styles the frontend can render (src/lib/avatars.js).
+const AVATAR_STYLES = ['notionists', 'lorelei', 'openPeeps', 'shapes'];
+
 const userSchema = new mongoose.Schema(
   {
     email: {
@@ -21,6 +24,14 @@ const userSchema = new mongoose.Schema(
       maxlength: 80,
       default: '',
     },
+    // Generated-avatar choice. Only the recipe is stored (style + seed); the
+    // image itself is rendered in the browser, so no files are uploaded or
+    // served and no third-party avatar service is ever called.
+    avatar: {
+      _id: false,
+      style: { type: String, enum: AVATAR_STYLES },
+      seed: { type: String, maxlength: 64 },
+    },
   },
   { timestamps: true },
 );
@@ -36,3 +47,4 @@ userSchema.set('toJSON', {
 });
 
 module.exports = mongoose.model('User', userSchema);
+module.exports.AVATAR_STYLES = AVATAR_STYLES;

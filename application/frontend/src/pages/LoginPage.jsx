@@ -41,6 +41,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
+      eyebrow="Sheet 01 — Sign in"
       title="Welcome back"
       subtitle="Sign in to your DiagramForge workspace."
       footer={

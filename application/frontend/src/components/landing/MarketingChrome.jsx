@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowRight, Menu as MenuIcon, Moon, Sun, X } from 'lucide-react';
-import Logo from '../brand/Logo';
+import { ArrowUpRight, Menu as MenuIcon, Moon, Sun, X } from 'lucide-react';
+import Logo, { LogoMark } from '../brand/Logo';
 import Button from '../ui/Button';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { cn } from '../../lib/utils';
 
 const LINKS = [
-  { href: '#features', label: 'Features' },
-  { href: '#how-it-works', label: 'How it works' },
-  { href: '#security', label: 'Security' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '#capabilities', n: '01', label: 'Capabilities' },
+  { href: '#process', n: '02', label: 'Process' },
+  { href: '#legend', n: '03', label: 'Legend' },
+  { href: '#quality', n: '04', label: 'Quality' },
+  { href: '#notes', n: '05', label: 'Notes' },
 ];
 
 export function MarketingNav() {
@@ -30,37 +31,29 @@ export function MarketingNav() {
   return (
     <header
       className={cn(
-        'fixed inset-x-0 top-0 z-40 transition-all duration-300',
+        'fixed inset-x-0 top-0 z-40 border-b transition-colors duration-300',
         scrolled
-          ? 'border-b border-zinc-200/70 bg-white/75 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/75'
-          : 'border-b border-transparent',
+          ? 'border-zinc-300 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-950/90'
+          : 'border-transparent',
       )}
     >
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-8 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-10 px-5 sm:px-8">
         <Logo />
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+        <nav className="hidden items-center gap-6 lg:flex" aria-label="Primary">
           {LINKS.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="rounded-lg px-3 py-2 text-sm text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-            >
+            <a key={l.href} href={l.href} className="group flex items-baseline gap-1.5 text-sm text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50">
+              <span className="font-mono text-[10px] text-zinc-400 group-hover:text-brand-600 dark:text-zinc-500">{l.n}</span>
               {l.label}
             </a>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggle}
-            aria-label={resolved === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
+          <Button variant="ghost" size="icon" onClick={toggle} aria-label={resolved === 'dark' ? 'Switch to paper (light) mode' : 'Switch to blueprint (dark) mode'}>
             {resolved === 'dark' ? <Sun /> : <Moon />}
           </Button>
           {user ? (
             <Button to="/app" size="sm" className="hidden sm:inline-flex">
-              Open dashboard <ArrowRight />
+              Open workspace <ArrowUpRight />
             </Button>
           ) : (
             <>
@@ -68,12 +61,12 @@ export function MarketingNav() {
                 Sign in
               </Button>
               <Button to="/register" size="sm" className="hidden sm:inline-flex">
-                Get started free
+                Start drafting
               </Button>
             </>
           )}
           <button
-            className="rounded-md p-2 text-zinc-600 md:hidden dark:text-zinc-400"
+            className="p-2 text-zinc-700 lg:hidden dark:text-zinc-300"
             onClick={() => setOpen((o) => !o)}
             aria-label="Toggle menu"
             aria-expanded={open}
@@ -85,33 +78,29 @@ export function MarketingNav() {
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-t border-zinc-200 bg-white md:hidden dark:border-zinc-800 dark:bg-zinc-950"
+            initial={{ height: 0 }}
+            animate={{ height: 'auto' }}
+            exit={{ height: 0 }}
+            className="overflow-hidden border-t border-zinc-300 bg-zinc-50 lg:hidden dark:border-zinc-700 dark:bg-zinc-950"
           >
-            <div className="space-y-1 px-4 py-4">
+            <div className="divide-y divide-zinc-200 px-5 dark:divide-zinc-800">
               {LINKS.map((l) => (
-                <a
-                  key={l.href}
-                  href={l.href}
-                  onClick={() => setOpen(false)}
-                  className="block rounded-lg px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                >
+                <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="flex items-baseline gap-3 py-3 text-zinc-800 dark:text-zinc-200">
+                  <span className="font-mono text-[10px] text-zinc-400">{l.n}</span>
                   {l.label}
                 </a>
               ))}
-              <div className="grid grid-cols-2 gap-2 pt-3">
+              <div className="grid grid-cols-2 gap-2 py-4">
                 {user ? (
                   <Button to="/app" className="col-span-2">
-                    Open dashboard
+                    Open workspace
                   </Button>
                 ) : (
                   <>
                     <Button to="/login" variant="secondary">
                       Sign in
                     </Button>
-                    <Button to="/register">Get started</Button>
+                    <Button to="/register">Start drafting</Button>
                   </>
                 )}
               </div>
@@ -123,43 +112,48 @@ export function MarketingNav() {
   );
 }
 
+// The footer is laid out like a drawing's title block: ruled cells with
+// small uppercase field labels.
 export function MarketingFooter() {
   const year = new Date().getFullYear();
-  const columns = [
-    { title: 'Product', links: [['Features', '#features'], ['How it works', '#how-it-works'], ['Diagram types', '#types'], ['FAQ', '#faq']] },
-    { title: 'Platform', links: [['Security', '#security'], ['DevSecOps pipeline', '#security'], ['Status', '/healthz']] },
-    { title: 'Account', links: [['Sign in', '/login'], ['Create account', '/register'], ['Dashboard', '/app']] },
-  ];
+  const cell = 'border-zinc-300 p-5 dark:border-zinc-700';
   return (
-    <footer className="border-t border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.5fr_1fr_1fr_1fr] lg:px-8">
-        <div>
-          <Logo />
-          <p className="mt-4 max-w-xs text-sm text-zinc-500 dark:text-zinc-400">
-            Turn plain-English descriptions into production-ready diagrams. Built cloud-native, shipped through a
-            security-gated pipeline.
-          </p>
-        </div>
-        {columns.map((col) => (
-          <div key={col.title}>
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">{col.title}</h3>
-            <ul className="mt-4 space-y-2.5">
-              {col.links.map(([label, href]) => (
-                <li key={label}>
-                  <a href={href} className="text-sm text-zinc-500 transition hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white">
-                    {label}
-                  </a>
-                </li>
+    <footer className="border-t border-zinc-900 bg-zinc-50 dark:border-zinc-100 dark:bg-zinc-950">
+      <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8">
+        <div className="grid border border-zinc-900 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] dark:border-zinc-100">
+          <div className={cn(cell, 'border-b sm:border-r lg:border-b-0')}>
+            <p className="label-mono">Drawn by</p>
+            <div className="mt-3 flex items-center gap-3">
+              <LogoMark className="size-9" />
+              <div>
+                <p className="display text-2xl leading-none text-zinc-900 dark:text-zinc-50">DiagramForge</p>
+                <p className="mt-1 text-xs text-zinc-500">Team D11 · Amrita Vishwa Vidyapeetham</p>
+              </div>
+            </div>
+          </div>
+          <div className={cn(cell, 'border-b lg:border-r lg:border-b-0')}>
+            <p className="label-mono">Product</p>
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {[['Capabilities', '#capabilities'], ['Process', '#process'], ['Legend', '#legend'], ['Notes', '#notes']].map(([l, h]) => (
+                <li key={l}><a className="text-zinc-700 hover:text-brand-600 dark:text-zinc-300 dark:hover:text-brand-400" href={h}>{l}</a></li>
               ))}
             </ul>
           </div>
-        ))}
-      </div>
-      <div className="border-t border-zinc-200 dark:border-zinc-800">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 py-6 text-xs text-zinc-500 sm:flex-row sm:px-6 lg:px-8">
-          <p>© {year} DiagramForge · Team D11, Amrita Vishwa Vidyapeetham</p>
-          <p>22AIE305 Introduction to Cloud Computing</p>
+          <div className={cn(cell, 'border-b sm:border-r sm:border-b-0')}>
+            <p className="label-mono">Workspace</p>
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {[['Sign in', '/login'], ['Create account', '/register'], ['Open dashboard', '/app']].map(([l, h]) => (
+                <li key={l}><a className="text-zinc-700 hover:text-brand-600 dark:text-zinc-300 dark:hover:text-brand-400" href={h}>{l}</a></li>
+              ))}
+            </ul>
+          </div>
+          <div className={cell}>
+            <p className="label-mono">Course</p>
+            <p className="mt-3 text-sm text-zinc-700 dark:text-zinc-300">22AIE305 — Introduction to Cloud Computing</p>
+            <p className="mt-1 font-mono text-[11px] text-zinc-500">REV. {year}.{String(new Date().getMonth() + 1).padStart(2, '0')} · SCALE 1:1</p>
+          </div>
         </div>
+        <p className="mt-4 text-center font-mono text-[10.5px] tracking-wider text-zinc-500 uppercase">© {year} DiagramForge · All diagrams are yours</p>
       </div>
     </footer>
   );

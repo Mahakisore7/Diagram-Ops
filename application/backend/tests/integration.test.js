@@ -363,3 +363,19 @@ describe('create with tags', () => {
     expect(tooMany.status).toBe(400);
   });
 });
+
+describe('profile avatar', () => {
+  it('saves a valid avatar choice and rejects unknown styles', async () => {
+    const auth = { Authorization: `Bearer ${await registerAndLogin('avatar@example.com')}` };
+
+    const ok = await request(app).patch('/api/auth/me').set(auth).send({ avatar: { style: 'lorelei', seed: 'blue-fox' } });
+    expect(ok.status).toBe(200);
+    expect(ok.body.user.avatar).toEqual({ style: 'lorelei', seed: 'blue-fox' });
+
+    const me = await request(app).get('/api/auth/me').set(auth);
+    expect(me.body.user.avatar.style).toBe('lorelei');
+
+    const bad = await request(app).patch('/api/auth/me').set(auth).send({ avatar: { style: 'evil', seed: 'x' } });
+    expect(bad.status).toBe(400);
+  });
+});

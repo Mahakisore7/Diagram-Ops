@@ -47,10 +47,11 @@ async function getUserById(id) {
   return User.findById(id);
 }
 
-async function updateProfile(userId, { name }) {
+async function updateProfile(userId, { name, avatar }) {
   const user = await User.findById(userId);
   if (!user) throw new ApiError(401, 'UNAUTHENTICATED', 'User no longer exists.');
   if (name !== undefined) user.name = name;
+  if (avatar !== undefined) user.avatar = avatar;
   await user.save();
   return user;
 }

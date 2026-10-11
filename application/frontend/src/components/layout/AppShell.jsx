@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu as MenuIcon,
   Moon,
+  Plus,
   Search,
   Settings,
   Sparkles,
@@ -21,10 +22,11 @@ import {
 } from 'lucide-react';
 import Logo from '../brand/Logo';
 import Button from '../ui/Button';
-import { Avatar, Kbd } from '../ui/primitives';
+import { Kbd } from '../ui/primitives';
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from '../ui/Menu';
 import CommandPalette from './CommandPalette';
 import ShortcutsDialog from './ShortcutsDialog';
+import Avatar from '../ui/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useHotkey } from '../../hooks/useHotkey';
@@ -42,8 +44,9 @@ const NAV = [
 function SidebarNav({ onNavigate }) {
   const location = useLocation();
   return (
-    <nav className="space-y-0.5" aria-label="Main">
-      {NAV.map((item) => {
+    <nav aria-label="Main">
+      <p className="label-mono mb-2 px-3">Index</p>
+      {NAV.map((item, index) => {
         const Icon = item.icon;
         return (
           <NavLink
@@ -56,13 +59,14 @@ function SidebarNav({ onNavigate }) {
               const favActive = location.search.includes('favorite=true');
               const active = item.match ? favActive && isActive : isActive && !(item.to === '/app/diagrams' && favActive);
               return cn(
-                'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
+                'group relative flex items-center gap-3 border-l-2 px-3 py-2 text-sm transition',
                 active
-                  ? 'bg-white text-zinc-900 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-white dark:ring-zinc-700'
-                  : 'text-zinc-600 hover:bg-zinc-200/50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-100',
+                  ? 'border-zinc-900 bg-white font-medium text-zinc-900 dark:border-zinc-50 dark:bg-zinc-900 dark:text-zinc-50'
+                  : 'border-transparent text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:text-zinc-100',
               );
             }}
           >
+            <span className="w-5 font-mono text-[10px] text-zinc-400">{String(index + 1).padStart(2, '0')}</span>
             <Icon className="size-4 shrink-0" />
             {item.label}
           </NavLink>
@@ -84,15 +88,18 @@ function UsageMeter() {
   const tone = pct >= 90 ? 'var(--viz-critical)' : pct >= 70 ? 'var(--viz-warning)' : 'var(--viz-good)';
   const label = pct >= 90 ? 'Near limit' : pct >= 70 ? 'Elevated' : 'Healthy';
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-medium text-zinc-700 dark:text-zinc-300">Fallback AI budget</span>
-        <span className="text-zinc-500">{label}</span>
+    <div className="border border-zinc-300 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+      <div className="flex items-center justify-between">
+        <span className="label-mono">Fallback budget</span>
+        <span className="font-mono text-[10px] text-zinc-500 uppercase">{label}</span>
       </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: tone }} />
+      {/* 20-segment gauge: each tick is 5% of today's Claude cap */}
+      <div className="mt-2.5 flex gap-[2px]" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Fallback AI budget used">
+        {Array.from({ length: 20 }, (_, i) => (
+          <span key={i} className="h-2.5 flex-1" style={{ background: i < Math.round(pct / 5) ? tone : 'var(--color-zinc-200)' }} />
+        ))}
       </div>
-      <p className="mt-1.5 text-xs text-zinc-500 tabular-nums">
+      <p className="mt-2 font-mono text-[11px] text-zinc-500 tabular-nums">
         {usage.count} / {usage.cap} Claude calls today
       </p>
     </div>
@@ -112,7 +119,7 @@ function UserMenu() {
         <button
           onClick={open}
           {...aria}
-          className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition hover:bg-zinc-200/50 dark:hover:bg-zinc-800/60"
+          className="flex w-full items-center gap-3 border border-transparent p-2 text-left transition hover:border-zinc-300 hover:bg-white dark:hover:border-zinc-700 dark:hover:bg-zinc-900"
         >
           <Avatar user={user} size="sm" />
           <span className="min-w-0 flex-1">
@@ -154,8 +161,8 @@ function SidebarContent({ onNavigate }) {
       <div className="flex items-center justify-between px-1 pt-1">
         <Logo to="/app" />
       </div>
-      <Button to="/app/new" variant="primary" className="w-full" onClick={onNavigate}>
-        <Sparkles /> New diagram
+      <Button to="/app/new" variant="accent" className="w-full" onClick={onNavigate}>
+        <Plus /> New diagram
       </Button>
       <SidebarNav onNavigate={onNavigate} />
       <div className="mt-auto space-y-3">
@@ -200,7 +207,7 @@ export default function AppShell() {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-zinc-200 bg-zinc-100/60 lg:block dark:border-zinc-800 dark:bg-zinc-900/40">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-zinc-300 bg-zinc-100 lg:block dark:border-zinc-800 dark:bg-zinc-950">
         <SidebarContent />
       </aside>
 
@@ -236,7 +243,7 @@ export default function AppShell() {
       </AnimatePresence>
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-zinc-200 bg-white/80 px-4 backdrop-blur-xl sm:px-6 dark:border-zinc-800 dark:bg-zinc-950/80">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-zinc-300 bg-zinc-50/90 px-4 backdrop-blur-md sm:px-6 dark:border-zinc-800 dark:bg-zinc-950/90">
           <button
             onClick={() => setMobileOpen(true)}
             className="rounded-md p-1.5 text-zinc-600 lg:hidden dark:text-zinc-400"
@@ -247,7 +254,7 @@ export default function AppShell() {
           <Logo compact to="/app" className="lg:hidden" />
           <button
             onClick={() => setPaletteOpen(true)}
-            className="ml-auto flex h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 text-sm text-zinc-500 transition hover:border-zinc-300 sm:ml-0 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
+            className="ml-auto flex h-9 w-full max-w-sm items-center gap-2 border border-zinc-300 bg-white px-3 text-sm text-zinc-500 transition hover:border-zinc-900 sm:ml-0 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
           >
             <Search className="size-4" />
             <span className="flex-1 text-left">Search or jump to…</span>
