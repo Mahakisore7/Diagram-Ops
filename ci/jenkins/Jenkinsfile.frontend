@@ -3,6 +3,11 @@
 pipeline {
     agent any
 
+    parameters {
+        booleanParam(name: 'FORCE_BUILD', defaultValue: false,
+            description: 'Run the full pipeline even if the latest commit has no frontend changes (e.g. to rebuild and push the image of main).')
+    }
+
     environment {
         FRONTEND_REPO = "diagramforge-frontend"
         AWS_REGION    = "ap-south-1"
@@ -26,7 +31,7 @@ pipeline {
             steps {
                 script {
                     def changes = sh(script: "git diff --name-only HEAD~1 HEAD || true", returnStdout: true).trim()
-                    if (!changes.contains('application/frontend/') && !changes.contains('Jenkinsfile.frontend')) {
+                    if (!params.FORCE_BUILD && !changes.contains('application/frontend/') && !changes.contains('Jenkinsfile.frontend')) {
                         currentBuild.result = 'NOT_BUILT'
                         error("No frontend changes — skipping this pipeline run")
                     }
