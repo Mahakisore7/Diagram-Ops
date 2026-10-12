@@ -119,3 +119,8 @@ env/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Terraform plan files (binary, may embed config values) and local hand-off notes
+*.plan
+*.tfplan
+docs/setup/aws-access-for-teammate.md
