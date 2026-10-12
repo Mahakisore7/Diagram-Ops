@@ -39,7 +39,27 @@ pipeline {
         }
 
         stage('Unit Tests') {
-            steps { dir('application/backend') { sh 'npm test -- --ci' } }
+            steps {
+                dir('application/backend') {
+                    // tests/integration.test.js drives the app against a REAL
+                    // MongoDB (GitHub Actions provides one as a service
+                    // container; Jenkins has none). Start a throwaway one on a
+                    // random localhost port so concurrent builds cannot clash,
+                    // and always remove it afterwards.
+                    sh '''#!/bin/bash
+                        set -e
+                        NAME="mongo-test-${BUILD_TAG//[^a-zA-Z0-9_.-]/_}"
+                        docker run -d --name "$NAME" -p 127.0.0.1::27017 mongo:7 >/dev/null
+                        trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
+                        PORT=$(docker port "$NAME" 27017/tcp | head -1 | sed 's/.*://')
+                        for i in $(seq 1 30); do
+                          docker exec "$NAME" mongosh --quiet --eval 'db.runCommand({ping:1})' >/dev/null 2>&1 && break
+                          sleep 2
+                        done
+                        MONGO_URI="mongodb://127.0.0.1:$PORT/diagramops-test" npm test -- --ci
+                    '''
+                }
+            }
         }
 
         stage('SonarQube Scan') {
