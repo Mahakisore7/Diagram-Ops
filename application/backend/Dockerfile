@@ -9,7 +9,8 @@ FROM node:24-alpine
 # without tini. tini earns its place for the other half of PID 1's job:
 # reaping zombie child processes, which no ordinary process (node included)
 # does automatically. Costs ~600KB.
-RUN apk add --no-cache tini && \
+RUN apk upgrade --no-cache && \
+    apk add --no-cache tini && \
     addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app

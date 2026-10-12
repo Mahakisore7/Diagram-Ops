@@ -17,6 +17,13 @@ RUN npm run build
 # needed later.
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 
+# Pull in OS security fixes published since the base image was built (Trivy
+# gates the pipeline on HIGH/CRITICAL). Needs root; drop back to the image's
+# unprivileged user (uid 101) straight after.
+USER root
+RUN apk upgrade --no-cache
+USER 101
+
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
