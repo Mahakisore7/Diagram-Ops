@@ -1,0 +1,26 @@
+# More headroom, two replicas per stateless tier, autoscaling on.
+frontend:
+  replicaCount: 2
+  resources:
+    requests: { cpu: 100m, memory: 96Mi }
+    limits: { cpu: 300m, memory: 192Mi }
+
+backend:
+  replicaCount: 2
+  env:
+    nodeEnv: production
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { cpu: 750m, memory: 768Mi }
+
+mongodb:
+  # A true HA replica set is a stretch goal; a single member with a
+  # persistent volume is what this chart provides, stated rather than faked.
+  replicaCount: 1
+  storage: 10Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70

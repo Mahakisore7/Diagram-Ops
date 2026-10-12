@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    {{- include "three-tier-app.labels" . | nindent 4 }}
+    app: backend
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.backend.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        {{- include "three-tier-app.labels" . | nindent 8 }}
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: {{ include "three-tier-app.image" (dict "root" . "image" .Values.backend.image) | quote }}
+          ports:
+            - containerPort: 5000
+          env:
+            - { name: NODE_ENV, value: {{ .Values.backend.env.nodeEnv | quote }} }
+            - { name: PORT, value: {{ .Values.backend.env.port | quote }} }
+            - { name: MONGO_URI, value: "mongodb://mongodb:27017/diagramforge" }
+            - { name: JWT_EXPIRES_IN, value: {{ .Values.backend.env.jwtExpiresIn | quote }} }
+            - { name: DEFAULT_LLM_PROVIDER, value: {{ .Values.backend.env.defaultLlmProvider | quote }} }
+            - { name: FALLBACK_LLM_PROVIDER, value: {{ .Values.backend.env.fallbackLlmProvider | quote }} }
+            - { name: GROQ_MODEL, value: {{ .Values.backend.env.groqModel | quote }} }
+            - { name: ANTHROPIC_MODEL, value: {{ .Values.backend.env.anthropicModel | quote }} }
+            - { name: DAILY_CLAUDE_CALL_CAP, value: {{ .Values.backend.env.dailyClaudeCallCap | quote }} }
+            - { name: RATE_LIMIT_WINDOW_MS, value: {{ .Values.backend.env.rateLimitWindowMs | quote }} }
+            - { name: RATE_LIMIT_MAX, value: {{ .Values.backend.env.rateLimitMax | quote }} }
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: diagramforge-secrets, key: jwt-secret } }
+            - name: GROQ_API_KEY
+              valueFrom: { secretKeyRef: { name: diagramforge-secrets, key: groq-api-key } }
+            - name: ANTHROPIC_API_KEY
+              valueFrom: { secretKeyRef: { name: diagramforge-secrets, key: anthropic-api-key } }
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          # /healthz is liveness (process is up); /readyz also checks MongoDB,
+          # so a pod without a database is pulled out of the Service instead
+          # of being restarted in a loop.
+          livenessProbe:
+            httpGet: { path: /healthz, port: 5000 }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /readyz, port: 5000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+# Named exactly "backend": frontend/nginx.conf proxies /api/ to backend:5000.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    {{- include "three-tier-app.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+{{- if .Values.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend
+  labels:
+    {{- include "three-tier-app.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

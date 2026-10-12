@@ -1,0 +1,31 @@
+{{- if .Values.ingress.enabled }}
+# One rule, everything to the frontend: its nginx serves the SPA and proxies
+# /api/ to the backend Service (docs/adr/0007-nginx-api-proxy.md), exactly as
+# in Docker Compose, so the browser only ever talks to one origin.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: diagramforge
+  labels:
+    {{- include "three-tier-app.labels" . | nindent 4 }}
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - {{- if .Values.ingress.host }}
+      host: {{ .Values.ingress.host | quote }}
+      {{- end }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+{{- end }}

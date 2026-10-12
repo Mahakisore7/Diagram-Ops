@@ -1,0 +1,64 @@
+# Defaults shared by every environment; values-dev.yaml / values-prod.yaml
+# override what differs.
+
+global:
+  # ECR registry host, e.g. 066118247738.dkr.ecr.ap-south-1.amazonaws.com
+  # Required - pass with --set global.registry=...
+  registry: ""
+
+frontend:
+  image:
+    repository: diagramforge-frontend
+    tag: ""            # required: --set frontend.image.tag=sha-<short-sha>
+  replicaCount: 1
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits: { cpu: 200m, memory: 128Mi }
+
+backend:
+  image:
+    repository: diagramforge-backend
+    tag: ""            # required: --set backend.image.tag=sha-<short-sha>
+  replicaCount: 1
+  env:
+    nodeEnv: production
+    port: "5000"
+    jwtExpiresIn: 24h
+    defaultLlmProvider: groq
+    fallbackLlmProvider: claude
+    groqModel: openai/gpt-oss-120b
+    anthropicModel: claude-sonnet-5
+    dailyClaudeCallCap: "50"
+    rateLimitWindowMs: "60000"
+    rateLimitMax: "30"
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+mongodb:
+  image: mongo:7
+  replicaCount: 1
+  storage: 2Gi
+  storageClassName: ""   # empty = the cluster default (gp2 on EKS)
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 300m, memory: 512Mi }
+
+# Secrets are passed at install time, never committed:
+#   --set secrets.jwtSecret=... --set secrets.groqApiKey=... --set secrets.anthropicApiKey=...
+# (Phase 12 replaces this with External Secrets + AWS Secrets Manager.)
+secrets:
+  jwtSecret: ""
+  groqApiKey: ""
+  anthropicApiKey: ""
+
+ingress:
+  enabled: true
+  className: alb
+  host: ""             # empty = match any host (use the ALB's own DNS name)
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
