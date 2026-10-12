@@ -1,0 +1,10 @@
+# Lean and cost-conscious: one replica per tier, no autoscaling.
+backend:
+  env:
+    nodeEnv: development
+
+mongodb:
+  storage: 2Gi
+
+autoscaling:
+  enabled: false

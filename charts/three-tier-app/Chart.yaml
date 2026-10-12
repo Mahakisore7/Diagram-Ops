@@ -1,0 +1,6 @@
+apiVersion: v2
+name: three-tier-app
+description: DiagramForge - templated Helm chart for the frontend, backend and MongoDB tiers
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
