@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="t d">
+  <title id="t">DiagramForge</title>
+  <desc id="d">DiagramForge: describe the system, we'll draw it. An AI diagram studio on a production-grade cloud platform.</desc>
+  <defs>
+    <pattern id="minor" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path d="M16 0H0V16" fill="none" stroke="#1c1b17" stroke-opacity="0.07" stroke-width="1"/>
+    </pattern>
+    <pattern id="major" width="80" height="80" patternUnits="userSpaceOnUse">
+      <rect width="80" height="80" fill="url(#minor)"/>
+      <path d="M80 0H0V80" fill="none" stroke="#1c1b17" stroke-opacity="0.14" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10z" fill="#1c1b17"/>
+    </marker>
+  </defs>
+
+  <!-- sheet -->
+  <rect width="1280" height="360" fill="#f6f3ec"/>
+  <rect width="1280" height="360" fill="url(#major)"/>
+  <rect x="14" y="14" width="1252" height="332" fill="none" stroke="#1c1b17" stroke-width="1.5"/>
+  <rect x="22" y="22" width="1236" height="316" fill="none" stroke="#1c1b17" stroke-opacity="0.5" stroke-width="1"/>
+
+  <!-- registration marks -->
+  <g stroke="#1c1b17" stroke-width="1.2">
+    <path d="M14 -2v32M-2 14h32" transform="translate(0 0)"/>
+    <path d="M1266 -2v32M1250 14h32"/>
+    <path d="M14 330v32M-2 346h32"/>
+    <path d="M1266 330v32M1250 346h32"/>
+  </g>
+
+  <!-- wordmark -->
+  <g font-family="'Geist','Inter','Segoe UI',Helvetica,Arial,sans-serif">
+    <text x="64" y="64" font-size="13" letter-spacing="3" fill="#1c1b17" fill-opacity="0.6" font-family="'Geist Mono','SFMono-Regular',Consolas,monospace">SHEET 01 / AI DIAGRAM STUDIO</text>
+    <text x="62" y="158" font-size="84" font-weight="600" fill="#1c1b17" letter-spacing="-3">Diagram<tspan font-family="'Instrument Serif',Georgia,'Times New Roman',serif" font-style="italic" font-weight="400" fill="#c63f19" letter-spacing="-1">Forge</tspan></text>
+    <text x="64" y="206" font-size="30" font-family="'Instrument Serif',Georgia,'Times New Roman',serif" font-style="italic" fill="#1c1b17">Describe the system. We'll draw it.</text>
+    <text x="64" y="244" font-size="15" fill="#1c1b17" fill-opacity="0.7">Plain English to Mermaid diagrams in a second or two, on a production-grade</text>
+    <text x="64" y="266" font-size="15" fill="#1c1b17" fill-opacity="0.7">DevSecOps platform: Docker, Terraform, Jenkins, EKS, Helm, GitOps.</text>
+  </g>
+  <path d="M64 286h250" stroke="#c63f19" stroke-width="3"/>
+
+  <!-- drawing: prompt -> model -> diagram -->
+  <g font-family="'Geist Mono','SFMono-Regular',Consolas,monospace" font-size="12" fill="#1c1b17">
+    <rect x="700" y="92" width="150" height="56" fill="#fdfcf8" stroke="#1c1b17" stroke-width="1.5"/>
+    <text x="775" y="116" text-anchor="middle">brief</text>
+    <text x="775" y="134" text-anchor="middle" fill-opacity="0.55">"CI/CD pipeline"</text>
+
+    <rect x="930" y="92" width="150" height="56" fill="#1c1b17"/>
+    <text x="1005" y="116" text-anchor="middle" fill="#fdfcf8">LLM</text>
+    <text x="1005" y="134" text-anchor="middle" fill="#fdfcf8" fill-opacity="0.65">Groq to Claude</text>
+
+    <path d="M850 120H928" stroke="#1c1b17" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <path d="M1080 120H1118" stroke="#1c1b17" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <rect x="1120" y="92" width="110" height="56" fill="#fdfcf8" stroke="#c63f19" stroke-width="2"/>
+    <text x="1175" y="116" text-anchor="middle" fill="#c63f19">diagram</text>
+    <text x="1175" y="134" text-anchor="middle" fill-opacity="0.55">Mermaid</text>
+
+    <rect x="700" y="196" width="110" height="44" fill="#fdfcf8" stroke="#1c1b17" stroke-width="1.5"/>
+    <text x="755" y="223" text-anchor="middle">commit</text>
+    <path d="M810 218H848" stroke="#1c1b17" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <rect x="850" y="196" width="110" height="44" fill="#fdfcf8" stroke="#1c1b17" stroke-width="1.5"/>
+    <text x="905" y="223" text-anchor="middle">scan + test</text>
+    <path d="M960 218H998" stroke="#1c1b17" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <rect x="1000" y="196" width="110" height="44" fill="#fdfcf8" stroke="#1c1b17" stroke-width="1.5"/>
+    <text x="1055" y="223" text-anchor="middle">ECR</text>
+    <path d="M1110 218H1148" stroke="#1c1b17" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <rect x="1150" y="196" width="80" height="44" fill="#fdfcf8" stroke="#c63f19" stroke-width="2"/>
+    <text x="1190" y="223" text-anchor="middle" fill="#c63f19">EKS</text>
+
+    <text x="700" y="300" fill-opacity="0.55">FIG. 1 - the app (top) and the pipeline that ships it (bottom)</text>
+  </g>
+
+  <!-- title block -->
+  <g stroke="#1c1b17" stroke-width="1" fill="none">
+    <rect x="1000" y="304" width="236" height="26"/>
+    <path d="M1100 304v26M1168 304v26"/>
+  </g>
+  <g font-family="'Geist Mono','SFMono-Regular',Consolas,monospace" font-size="10" fill="#1c1b17" fill-opacity="0.75">
+    <text x="1008" y="321">REV A</text>
+    <text x="1108" y="321">22AIE305</text>
+    <text x="1176" y="321">TEAM D11</text>
+  </g>
+</svg>
