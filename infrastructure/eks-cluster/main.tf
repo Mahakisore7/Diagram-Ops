@@ -185,3 +185,42 @@ resource "aws_iam_role_policy_attachment" "lb_controller" {
   role       = aws_iam_role.lb_controller.name
   policy_arn = aws_iam_policy.lb_controller.arn
 }
+
+# --- EBS CSI driver: lets the MongoDB StatefulSet's PersistentVolumeClaim ---
+# actually provision an EBS volume. Without it the PVC stays Pending forever.
+# Same IRSA pattern as the load balancer controller: the driver's service
+# account is trusted via the OIDC provider and gets the AWS-managed policy.
+resource "aws_iam_role" "ebs_csi" {
+  name = "${var.project_name}-ebs-csi-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Federated = aws_iam_openid_connect_provider.eks.arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${local.oidc_provider_host}:aud" = "sts.amazonaws.com"
+          "${local.oidc_provider_host}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi" {
+  role       = aws_iam_role.ebs_csi.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name             = aws_eks_cluster.this.name
+  addon_name               = "aws-ebs-csi-driver"
+  service_account_role_arn = aws_iam_role.ebs_csi.arn
+
+  depends_on = [
+    aws_eks_node_group.this,
+    aws_iam_role_policy_attachment.ebs_csi,
+  ]
+}
