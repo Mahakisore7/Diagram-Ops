@@ -33,6 +33,9 @@ foreach ($k in 'JWT_SECRET', 'GROQ_API_KEY', 'ANTHROPIC_API_KEY') {
   if (-not $vars[$k]) { throw "$k is missing or empty in application/.env" }
 }
 
+# --- default StorageClass (EKS only ships the legacy non-default gp2) ---
+kubectl apply -f (Join-Path $root 'infrastructure/eks-cluster/storageclass-gp3.yaml')
+
 $tmp = New-TemporaryFile
 try {
   @"

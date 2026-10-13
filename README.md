@@ -657,7 +657,8 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n ku
   --set clusterName=diagramforge-cluster --set serviceAccount.create=false \
   --set serviceAccount.name=aws-load-balancer-controller --set region=ap-south-1 --set vpcId=<vpc-id>
 
-# 7: deploy the app (reads secrets from application/.env, never prints them)
+# 7: deploy the app. Applies the default gp3 StorageClass, then installs the chart,
+#    reading secrets from application/.env (never printed)
 ./scripts/deploy-dev.ps1
 
 # 9: remove everything that bills

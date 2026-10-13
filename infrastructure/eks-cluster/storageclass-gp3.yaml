@@ -1,0 +1,21 @@
+# Default StorageClass backed by the EBS CSI driver (installed by Terraform as
+# the aws-ebs-csi-driver add-on). EKS only ships the legacy in-tree "gp2"
+# class, which is not the default and is deprecated, so a PersistentVolumeClaim
+# with no storageClassName (like MongoDB's) would otherwise stay Pending.
+#
+# WaitForFirstConsumer creates the volume in the same availability zone as the
+# pod that uses it. Apply once per cluster:
+#   kubectl apply -f infrastructure/eks-cluster/storageclass-gp3.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+allowVolumeExpansion: true
