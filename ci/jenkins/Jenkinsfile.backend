@@ -61,7 +61,7 @@ pipeline {
                           docker exec "$NAME" mongosh --quiet --eval 'db.runCommand({ping:1})' >/dev/null 2>&1 && break
                           sleep 2
                         done
-                        MONGO_URI="mongodb://127.0.0.1:$PORT/diagramops-test" npm test -- --ci
+                        MONGO_URI="mongodb://127.0.0.1:$PORT/diagramops-test" npm test -- --ci --coverage --coverageReporters=lcov --coverageReporters=text-summary
                     '''
                 }
             }
