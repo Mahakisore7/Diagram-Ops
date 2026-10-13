@@ -9,7 +9,7 @@ frontend:
 
 backend:
   image:
-    tag: sha-d8befa9
+    tag: sha-38d17d5
   replicaCount: 2
   env:
     nodeEnv: production
