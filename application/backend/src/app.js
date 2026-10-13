@@ -4,6 +4,7 @@ const authRoutes = require('./routes/authRoutes');
 const diagramRoutes = require('./routes/diagramRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const requestId = require('./middleware/requestId');
+const { metricsMiddleware, metricsHandler } = require('./middleware/metrics');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 const { isConnected } = require('./db/connect');
 
@@ -21,6 +22,7 @@ function createApp() {
   app.use(helmet());
   app.use(express.json({ limit: '1mb' }));
   app.use(requestId);
+  app.use(metricsMiddleware);
 
   // Liveness/readiness are mounted first and are deliberately never
   // rate-limited or authenticated. Kubernetes polls /healthz continuously;
@@ -32,6 +34,10 @@ function createApp() {
     if (isConnected()) return res.status(200).json({ status: 'ready' });
     res.status(503).json({ status: 'not ready' });
   });
+
+  // Scraped in-cluster by Prometheus. The ingress only forwards to the frontend,
+  // whose nginx proxies /api/ alone, so this is not reachable from the internet.
+  app.get('/metrics', metricsHandler);
 
   app.use('/api/auth', authRoutes);
   // Before the authenticated /api router - see routes/publicRoutes.js.

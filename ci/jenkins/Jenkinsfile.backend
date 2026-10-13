@@ -68,6 +68,7 @@ pipeline {
         }
 
         stage('SonarQube Scan') {
+            when { branch 'main' }  // Community Edition keeps one analysis timeline per project
             steps {
                 dir('application/backend') {
                     sonarQubeScan(projectKey: 'diagramforge-backend', sourcePath: 'src')
@@ -110,6 +111,41 @@ pipeline {
                     repoName: env.BACKEND_REPO,
                     localImage: "diagramforge-backend:${env.GIT_SHA_SHORT}"
                 )
+            }
+        }
+
+        stage('Update GitOps Manifest') {
+            when { branch 'main' }
+            steps {
+                // Jenkins never deploys and never writes to main. It records the new
+                // image tag on the gitops-deploy branch (main + tag bumps), which is
+                // what ArgoCD watches, so main's review rules stay meaningful. The
+                // retry covers the backend and frontend pipelines pushing together.
+                withCredentials([usernamePassword(credentialsId: 'github-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    sh '''
+                        set -e
+                        git config user.email "jenkins-ci@diagramforge.local"
+                        git config user.name "Jenkins CI"
+                        export GIT_ASKPASS=$(mktemp)
+                        trap 'rm -f "$GIT_ASKPASS"' EXIT
+                        printf '#!/bin/sh\\ncase "$1" in Username*) echo "$GIT_USER";; *) echo "$GIT_PASS";; esac\\n' > "$GIT_ASKPASS"
+                        chmod 700 "$GIT_ASKPASS"
+                        for attempt in 1 2 3; do
+                          git fetch origin main gitops-deploy || git fetch origin main
+                          if git rev-parse -q --verify origin/gitops-deploy >/dev/null; then
+                            git checkout -B gitops-deploy origin/gitops-deploy
+                            git merge --no-edit origin/main
+                          else
+                            git checkout -B gitops-deploy origin/main
+                          fi
+                          yq -i '.backend.image.tag = "sha-'"$GIT_SHA_SHORT"'"' charts/three-tier-app/values-prod.yaml
+                          git add charts/three-tier-app/values-prod.yaml
+                          git diff --cached --quiet || git commit -m "ci(gitops): deploy backend sha-$GIT_SHA_SHORT"
+                          git push origin gitops-deploy && exit 0
+                        done
+                        exit 1
+                    '''
+                }
             }
         }
     }

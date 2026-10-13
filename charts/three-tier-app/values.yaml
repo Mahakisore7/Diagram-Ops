@@ -48,6 +48,9 @@ mongodb:
 #   --set secrets.jwtSecret=... --set secrets.groqApiKey=... --set secrets.anthropicApiKey=...
 # (Phase 12 replaces this with External Secrets + AWS Secrets Manager.)
 secrets:
+  # false when the Secret diagramforge-secrets already exists in the namespace
+  # (ArgoCD installs set this to false; the Secret is created out of band).
+  create: true
   jwtSecret: ""
   groqApiKey: ""
   anthropicApiKey: ""
@@ -62,3 +65,8 @@ autoscaling:
   minReplicas: 2
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
+
+# Needs the Prometheus Operator CRDs (kube-prometheus-stack). Off by default so
+# a bare cluster can install the chart; values-prod.yaml turns it on.
+monitoring:
+  enabled: false
