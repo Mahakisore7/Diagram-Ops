@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: three-tier-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Mahakisore7/Diagram-Ops.git
+    targetRevision: gitops-deploy  # main plus Jenkins' image-tag bumps; see ci/jenkins
+    path: charts/three-tier-app
+    helm:
+      valueFiles:
+        - values-prod.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: diagramforge
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
