@@ -108,7 +108,8 @@ pipeline {
                           else
                             git checkout -B gitops-deploy origin/main
                           fi
-                          yq -i '.frontend.image.tag = "sha-'"$GIT_SHA_SHORT"'"' charts/three-tier-app/values-prod.yaml
+                          # plain sed: yq would re-flow the file's inline maps and make the diff noisy
+                          sed -i '/^frontend:/,/^[a-z]/ s/^    tag: .*/    tag: sha-'"$GIT_SHA_SHORT"'/' charts/three-tier-app/values-prod.yaml
                           git add charts/three-tier-app/values-prod.yaml
                           git diff --cached --quiet || git commit -m "ci(gitops): deploy frontend sha-$GIT_SHA_SHORT"
                           git push origin gitops-deploy && exit 0
