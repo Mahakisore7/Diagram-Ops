@@ -139,7 +139,11 @@ defects found while hardening that pipeline are documented as case studies,
 including a false-positive CVE caused by an NVD CPE vendor/product collision
 between the MongoDB server and its Node.js driver, and a class of image
 vulnerabilities caused by an unused \texttt{npm} CLI left in the runtime
-container.
+container. The report also records the first live deployment of the
+application to Amazon EKS through a Helm chart, including the three
+cluster-level gaps it exposed (a missing default storage class and two
+missing load-balancer IAM permissions) and the proof that database content
+survives deletion of the database pod.
 \end{abstract}
 
 \tableofcontents
@@ -271,19 +275,19 @@ Security \newline (\reqid{NFR-S*}) &
     No secret in Git, image layers, or logs; non-root containers.
     \textbf{A build fails on any dependency with CVSS $\geq$ 8, or any
     fixable HIGH/CRITICAL image vulnerability} (\reqid{NFR-S5}). &
-    OWASP Dependency-Check and Trivy gates (Phase~6 --- this report's
-    primary subject). \\
+    OWASP Dependency-Check and Trivy gates (Phase~6, complete). \\
 Scalability \newline (\reqid{NFR-SC*}) &
-    Backend scales from 3 to 10 pods above 70\% average CPU; stateless
-    backend. &
-    HPA plus load test. \\
+    Backend scales from 2 to 6 pods above 70\% average CPU in the production
+    values; stateless backend. &
+    HPA (rendered and verified in the chart; load test planned). \\
 Observability \newline (\reqid{NFR-O*}) &
     Per-route rate, errors, and latency visible; logs survive restarts and
     are queryable by request ID. &
     Grafana, Loki (Phases~9, 15). \\
 Cost \newline (\reqid{NFR-C*}) &
-    Total AWS spend under \$40/month with disciplined teardown. &
-    AWS Budget alert at 60\%. \\
+    Total AWS spend within the account's credit allowance, with disciplined
+    teardown. &
+    AWS Budgets alerts at \$25, \$50 and \$75; spend visible per session. \\
 \bottomrule
 \end{tabularx}
 \caption{Non-functional requirement categories}
@@ -360,7 +364,7 @@ class of architecture breaks.
     \node[box,fill=clientTier,minimum width=3.4cm] (browser) at ( 0, 0)   {Browser\\React SPA + Mermaid.js};
     \node[box,fill=infraTier,minimum width=3.4cm]  (alb)     at ( 0,-1.8) {Application Load Balancer};
     \node[box,fill=appTier,minimum width=3.8cm]    (fe)      at (-5.7,-3.7) {Frontend pod\\nginx: static + \texttt{/api} proxy};
-    \node[box,fill=appTier,minimum width=3.9cm]    (be)      at ( 0,-3.7) {Backend pods\\Express API (3, HPA to 10)};
+    \node[box,fill=appTier,minimum width=3.9cm]    (be)      at ( 0,-3.7) {Backend pods\\Express API (2, HPA to 6)};
     \node[box,fill=dataTier,minimum width=3.8cm]   (mongo)   at ( 5.7,-3.7) {MongoDB StatefulSet\\+ EBS PersistentVolume};
     \node[box,fill=infraTier,minimum width=3.8cm]  (prom)    at ( 5.7,-5.6) {Prometheus\\(monitoring namespace)};
     \node[box,fill=extTier]                         (groq)    at (-1.9,-7.8) {Groq API\\(primary)};
@@ -642,6 +646,46 @@ an inline error, and the page remains usable (\reqid{FR-D8}).
 \label{fig:state}
 \end{figure}
 
+\subsection{Product Enhancements and User Interface}
+Beyond the minimal generate--render--save loop of the original scope, the
+application was extended to the feature set expected of a multi-user product:
+\begin{itemize}[nosep]
+    \item \textbf{Library management:} search, filtering by diagram type and
+        tag, favourites, duplication, sorting and pagination, with the last
+        twenty versions of every diagram retained on edit.
+    \item \textbf{Sharing:} revocable public links using unguessable
+        24-character tokens; shared pages are read-only, expose only
+        render fields, and are rate-limited separately.
+    \item \textbf{Account lifecycle:} profile and illustrated avatars
+        rendered client-side, password change, a full machine-readable
+        \emph{data export}, and account deletion that cascades to the user's
+        diagrams and audit events.
+    \item \textbf{Audit log:} sign-ins, saves, shares and deletions recorded
+        best-effort and expired automatically after ninety days by a
+        MongoDB TTL index.
+    \item \textbf{Interface:} a drafting-table design language with a light
+        ``paper'' and a dark ``cyanotype'' theme, a command palette, keyboard
+        shortcuts and a responsive layout down to phone width.
+\end{itemize}
+Figure~\ref{fig:ui} shows the studio, where a plain-English description
+produces a rendered flowchart in a few seconds, and the library view.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{../assets/screenshots/studio.png}\\[2pt]
+    {\scriptsize (a) Studio: generated CI/CD flowchart}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{../assets/screenshots/library.png}\\[2pt]
+    {\scriptsize (b) Library: search, tags and favourites}
+\end{minipage}
+\caption{The DiagramForge interface (light theme)}
+\label{fig:ui}
+\end{figure}
+
 % =============================================================================
 \section{DevSecOps Pipeline and Infrastructure}
 \label{sec:devsecops}
@@ -816,8 +860,10 @@ and re-running Trivy to confirm zero findings.
 \subsection{Deployment Architecture}
 Figure~\ref{fig:deploy} shows where each component physically runs once
 deployment is complete. The Jenkins server, EKS cluster, and ECR
-repositories exist today; the in-cluster workloads and the ALB routing
-arrive with Phases~7--8. A deliberate operational habit accompanies this
+repositories, together with the in-cluster workloads and the ALB routing
+(Phase~7), were built and verified live
+(Section~\ref{sec:liveverify}); GitOps-driven delivery arrives with
+Phase~8. A deliberate operational habit accompanies this
 architecture: the EKS cluster and its load
 balancer are torn down with \texttt{terraform destroy} at the end of each
 working session and rebuilt in roughly fifteen minutes at the start of the
@@ -837,9 +883,9 @@ edge is omitted from the figure for readability.
     \node[box,fill=extTier,minimum width=2.4cm]    (anth) at ( 7.0, 5.2) {Anthropic API};
     % inside AWS
     \node[box,fill=infraTier,minimum width=2.6cm]  (alb)     at ( 0.6, 3.3) {Application\\Load Balancer};
-    \node[box,fill=infraTier,minimum width=2.8cm]  (jenkins) at (-4.2, 1.2) {EC2 t3.large\\Jenkins + SonarQube};
+    \node[box,fill=infraTier,minimum width=2.8cm]  (jenkins) at (-4.2, 1.2) {EC2 m7i-flex.large\\Jenkins + SonarQube};
     \node[box,fill=appTier,minimum width=2.4cm]    (fe)      at (-0.8, 1.2) {frontend\\Deployment};
-    \node[box,fill=appTier,minimum width=2.4cm]    (be)      at ( 2.0, 1.2) {backend\\3 pods + HPA};
+    \node[box,fill=appTier,minimum width=2.4cm]    (be)      at ( 2.0, 1.2) {backend\\2 pods + HPA};
     \node[box,fill=dataTier,minimum width=2.4cm]   (mongo)   at ( 2.0,-0.6) {mongodb\\StatefulSet + EBS};
     \node[box,fill=infraTier,minimum width=2.4cm]  (ecr)     at ( 6.5, 1.2) {ECR\\container images};
     \node[box,fill=infraTier,minimum width=2.4cm]  (s3)      at ( 6.5,-0.6) {S3: Terraform state\\+ Mongo backups};
@@ -884,14 +930,104 @@ MongoDB & Single-replica StatefulSet & Honest limitation; production would
     use a replica set or a managed document store. \\
 Jenkins & Single EC2 instance, no HA & It is CI infrastructure, not the
     product: its downtime blocks deploys, not users. \\
-Backend replicas & 3, HPA up to 10 & Survives losing one pod with headroom
-    to spare (\reqid{NFR-A2}). \\
-Secrets & Never in Git or images & Fetched at runtime from AWS Secrets
-    Manager via the External Secrets Operator (planned, Phase~12). \\
+Backend replicas & Dev 1; prod 2 with an HPA to 6 & The production values
+    survive losing one pod with headroom to spare (\reqid{NFR-A2}); the dev
+    values keep the verification session cheap. \\
+Secrets & Never in Git or images & Today: supplied at install time from a
+    git-ignored file by the deploy script. Planned (Phase~12): fetched at
+    runtime from AWS Secrets Manager via the External Secrets Operator. \\
 \bottomrule
 \end{tabularx}
 \caption{Deployment design decisions}
 \end{table}
+
+\subsection{Live Deployment Verification and Lessons Learned}
+\label{sec:liveverify}
+Once the pipeline had pushed both images to ECR, the cluster was created with
+Terraform and the Helm chart was installed with a single script that reads
+secrets from a git-ignored file. The deployment was then verified end to end,
+rather than assumed from a successful \texttt{helm install}:
+\begin{itemize}[nosep]
+    \item all pods reached \texttt{Ready}; MongoDB's 2\,Gi EBS volume was
+        bound through the EBS CSI driver; the Application Load Balancer
+        became \texttt{active} and its target \texttt{healthy};
+    \item through the cluster's own reverse proxy, a user was registered and
+        signed in, a diagram was generated by the live primary provider in
+        about 0.6\,s (proving the secrets reached the backend), and saved;
+    \item the MongoDB pod was deleted; the StatefulSet recreated it and
+        reattached the \emph{same} persistent volume, and the saved diagram
+        was intact --- the concrete justification for a StatefulSet over a
+        Deployment;
+    \item after the session the cluster, nodes, load balancer and volume were
+        destroyed and their absence confirmed in AWS.
+\end{itemize}
+
+The first install did not work, and the reasons are instructive. The chart
+rendered and installed without error; every failure was a property of the
+\emph{cluster}, discovered only by running it (Table~\ref{tab:gaps}).
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}L{2.6cm} L{3.7cm} Y@{}}
+\toprule
+\textbf{Gap} & \textbf{Symptom} & \textbf{Root cause and fix} \\
+\midrule
+No default StorageClass & MongoDB pod \texttt{Pending}; claim event ``no
+    storage class is set'' & EKS ships only the legacy in-tree \texttt{gp2}
+    class, which is not the default. Added a default \texttt{gp3} class on the
+    EBS CSI driver, applied by the deploy script. \\
+Load balancer subnet discovery & Ingress never received an address; controller
+    log: 403 on \texttt{DescribeRouteTables} & The hand-copied IAM policy
+    predated the installed controller (v3.6.0). Permission added. \\
+Load balancer creation & Target group created, then 403 on
+    \texttt{GetSecurity\allowbreak GroupsForVpc} & Same cause. Rather than patching one
+    action at a time, the file was replaced by upstream's official policy for
+    the installed version: a strict superset, eight actions added. \\
+Backend crash loop & \texttt{getaddrinfo ENOTFOUND mongodb} & A symptom, not a
+    defect: a headless Service publishes no DNS records until a pod is ready,
+    so the backend could not resolve a database that never started. Resolved
+    by fixing the storage class. \\
+\bottomrule
+\end{tabularx}
+\caption{Cluster-level gaps found by the first live deployment}
+\label{tab:gaps}
+\end{table}
+
+Running the pipeline against real code also surfaced issues that no amount
+of reading the Jenkinsfile would have revealed:
+\begin{itemize}[nosep]
+    \item \textbf{Integration tests need a database.} GitHub Actions supplies
+        MongoDB as a service container; the Jenkins agent had none, so the
+        integration suite timed out. The test stage now starts a throwaway
+        \texttt{mongo:7} container on a random localhost port and always
+        removes it.
+    \item \textbf{A newly published critical advisory.} OWASP Dependency-Check
+        failed the backend on \texttt{proxy-addr} 2.0.7 (CVSS 9.1, IP
+        spoofing via IPv4-mapped IPv6 addresses), published after the previous
+        audit. \texttt{npm audit fix} resolved it inside the existing version
+        ranges, with all 77 tests still passing.
+    \item \textbf{Operating-system CVEs in the base image.} Trivy flagged HIGH
+        and CRITICAL findings in the frontend image's \texttt{musl},
+        \texttt{nghttp2}, \texttt{libtiff} and \texttt{zlib}, all with fixes
+        available. Both runtime images now run \texttt{apk upgrade}; the
+        frontend does so as root and returns to its unprivileged user.
+    \item \textbf{An irrelevant analyzer.} Dependency-Check's \texttt{pnpm}
+        analyzer failed the stage on an npm-only project; it is disabled in
+        the shared library alongside the already-disabled Yarn analyzer.
+    \item \textbf{SonarQube Community has one analysis stream.} Overlapping
+        builds of different branches submitted analyses out of order and the
+        server rejected the later report. Running one analysis at a time, or
+        restricting analysis to \texttt{main}, avoids it.
+    \item \textbf{No way to rebuild without a code change.} The relevant-changes
+        check inspects only the latest commit, so \texttt{main} could not be
+        rebuilt after an infrastructure-only merge. A \texttt{FORCE\_BUILD}
+        parameter now bypasses the check.
+\end{itemize}
+Each of these was diagnosed by reading the actual error rather than the
+summary line, fixed in code, and merged through a reviewed pull request; none
+required a manual change to a running system that was not then captured in
+the repository.
 
 % =============================================================================
 \section{Implementation Status}
@@ -900,7 +1036,7 @@ Secrets & Never in Git or images & Fetched at runtime from AWS Secrets
 \subsection{Phase Roadmap}
 The project is executed as incremental phases, each with one concrete
 learning outcome (Table~\ref{tab:phases}). This report reflects the system
-during Phase~6, with Phases~0--5 complete and verified.
+after Phase~7, with Phases~0--7 complete and verified.
 
 \begin{table}[H]
 \centering
@@ -916,10 +1052,10 @@ during Phase~6, with Phases~0--5 complete and verified.
     toolchain \\
 4 & EKS cluster & Kubernetes on AWS, node groups, IRSA, ALB controller \\
 5 & ECR & Private registries, immutable tags, lifecycle policies \\
-\textbf{6} & \textbf{CI gates} & \textbf{Jenkins pipelines, tests,
-    SonarQube, OWASP Dependency-Check, Trivy (in progress; this report's
-    primary subject)} \\
-7 & Helm & Templated manifests, probes, HPA, StatefulSet \\
+6 & CI gates & Jenkins pipelines, tests, SonarQube, OWASP
+    Dependency-Check, Trivy (complete; all gates passing) \\
+\textbf{7} & \textbf{Helm} & \textbf{Templated manifests, probes, HPA,
+    StatefulSet (complete; verified live on EKS)} \\
 8 & GitOps & ArgoCD App-of-Apps, auto-sync, self-healing \\
 9 & Observability & Prometheus, Grafana, application metrics, alerts \\
 10 & DNS and TLS & Route53, ACM certificates, HTTPS through the ALB \\
@@ -942,9 +1078,10 @@ during Phase~6, with Phases~0--5 complete and verified.
 \subsection{Verified Outcomes}
 The following have been directly verified, not merely designed:
 \begin{itemize}[nosep]
-    \item 46 automated Jest tests across 8 suites (7 unit suites and one
-        integration suite that runs against a real MongoDB instance), plus
-        a real-browser Playwright check of the frontend.
+    \item 77 automated Jest tests across 9 suites (eight unit suites and one
+        integration suite that runs against a real MongoDB instance), passing
+        both in GitHub Actions and in the Jenkins pipeline, plus real-browser
+        end-to-end runs of the frontend in light, dark and mobile layouts.
     \item A passing SonarQube Quality Gate on the backend project, with the
         result delivered back to Jenkins by webhook.
     \item A clean OWASP Dependency-Check run (exit code 0) after the
@@ -957,6 +1094,11 @@ The following have been directly verified, not merely designed:
     \item Terraform-managed infrastructure with remote state (S3 plus
         DynamoDB locking), applied and destroyed repeatedly as part of the
         project's cost discipline.
+    \item Both container images built, scanned and pushed to ECR by the
+        Jenkins pipeline on \texttt{main}, each tagged with its commit SHA.
+    \item A live deployment to Amazon EKS through the Helm chart, verified
+        end to end including persistence across deletion of the database pod
+        (Section~\ref{sec:liveverify}), then destroyed.
 \end{itemize}
 
 % =============================================================================
@@ -989,6 +1131,16 @@ The following have been directly verified, not merely designed:
         \texttt{User.toJSON()} strips \texttt{passwordHash} during
         serialisation, so the hash cannot leak even through a careless
         \texttt{res.json(user)}.
+    \item \textbf{No static cloud keys in the cluster.} The load balancer
+        controller and the EBS driver obtain temporary AWS credentials through
+        IAM Roles for Service Accounts, each role trusted by exactly one
+        Kubernetes service account. The controller's policy is the upstream
+        policy for its installed version, not a hand-maintained copy.
+    \item \textbf{Known gaps, scheduled rather than hidden.} Kubernetes Secrets
+        are base64, not encryption; there is no NetworkPolicy or Pod Security
+        enforcement yet; the in-cluster MongoDB is a single member without
+        authentication; and the load balancer serves plain HTTP with no custom
+        domain. These are addressed in Phases~10--12.
 \end{itemize}
 
 % =============================================================================
@@ -1004,8 +1156,8 @@ continuously versus only during active working sessions.
 \textbf{Resource} & \textbf{Always on} & \textbf{About 15 h/week} \\
 \midrule
 EKS control plane (\$0.10/h, billed even when idle) & \$73 & pro-rated \\
-2 $\times$ t3.medium worker nodes & \$60 (\$18 spot) & pro-rated \\
-Jenkins EC2 (t3.large) & \$60 & pro-rated \\
+2 $\times$ m7i-flex.large worker nodes (spot) & \$60 on demand, less on spot & pro-rated \\
+Jenkins EC2 (m7i-flex.large) & \$70 & stopped when idle \\
 Application Load Balancer & \$18 + data & pro-rated \\
 EBS volumes & \$5 & \$5 (persists) \\
 Route53 hosted zone & \$0.50 & \$0.50 (persists) \\
@@ -1022,8 +1174,14 @@ ECR storage & negligible & negligible \\
 tooling: destroy the EKS cluster and stop the Jenkins instance at the end
 of every session. That is only survivable because the whole cluster is
 code --- rebuilding it by hand through the AWS console, repeatedly, would
-be impractical. An AWS Budget alert is set at \$40 with a notification at
-60\%.
+be impractical. This is automated by two scripts: one installs the
+application onto a fresh cluster and one removes the application, its load
+balancer and volume, and then the cluster itself, in the order that avoids
+orphaned resources. Worker nodes run on spot capacity in public subnets, so
+no NAT gateway (about \$32/month) is ever created. AWS Budgets alerts are
+configured at \$25, \$50 and \$75 of monthly spend. While idle between
+sessions the account costs roughly \$7 per month (two stopped instances'
+disks and one public address); everything else is destroyed.
 
 % =============================================================================
 \section{Related Work}
@@ -1048,9 +1206,8 @@ unrelated products sharing a vendor/product name in the NVD dictionary.
 The remaining phases (Table~\ref{tab:phases}) extend the platform toward a
 production-representative posture:
 \begin{itemize}[nosep]
-    \item \textbf{Helm and GitOps} (Phases~7--8): templated charts delivered
-        through ArgoCD's App-of-Apps pattern, removing the last manual
-        deployment step.
+    \item \textbf{GitOps} (Phase~8): the Helm chart delivered through ArgoCD's
+        App-of-Apps pattern, removing the last manual deployment step.
     \item \textbf{Observability} (Phase~9): Prometheus and Grafana
         dashboards, with alerts derived from the SLOs in
         Table~\ref{tab:nfr-summary}.
@@ -1076,8 +1233,11 @@ intentionally small; the pipeline, infrastructure, and security posture
 around it are not. The case studies in Section~\ref{sec:devsecops} were all
 found by running the gates against real code and reading the underlying
 report data rather than trusting a summary line, and each was resolved
-with a documented, individually justified fix. That discipline, more than
-any single tool choice, is the real subject of this report.
+with a documented, individually justified fix. The first live deployment
+repeated the lesson at cluster scale: a chart that linted and installed
+cleanly still failed on three properties of the cluster, and each was found
+by reading the controller's own error and fixed in code. That discipline,
+more than any single tool choice, is the real subject of this report.
 
 % =============================================================================
 \section*{References}
