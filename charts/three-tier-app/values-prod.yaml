@@ -1,11 +1,15 @@
 # More headroom, two replicas per stateless tier, autoscaling on.
 frontend:
+  image:
+    tag: sha-36885c0
   replicaCount: 2
   resources:
     requests: { cpu: 100m, memory: 96Mi }
     limits: { cpu: 300m, memory: 192Mi }
 
 backend:
+  image:
+    tag: sha-d8befa9
   replicaCount: 2
   env:
     nodeEnv: production
@@ -24,3 +28,13 @@ autoscaling:
   minReplicas: 2
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
+
+# GitOps: ArgoCD installs this file as-is. The Secret is created out of band
+# (Phase 12 replaces that with External Secrets), and Jenkins bumps the two
+# image tags below on every successful main build.
+global:
+  registry: 066118247738.dkr.ecr.ap-south-1.amazonaws.com
+secrets:
+  create: false
+monitoring:
+  enabled: true

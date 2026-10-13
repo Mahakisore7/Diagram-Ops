@@ -61,12 +61,14 @@ kind: Service
 metadata:
   name: backend
   labels:
+    app: backend
     {{- include "three-tier-app.labels" . | nindent 4 }}
 spec:
   selector:
     app: backend
   ports:
-    - port: 5000
+    - name: http
+      port: 5000
       targetPort: 5000
 {{- if .Values.autoscaling.enabled }}
 ---
