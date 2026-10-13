@@ -732,7 +732,7 @@ Found a vulnerability? Please open a private security advisory on GitHub rather 
 | 4 | EKS cluster, IRSA, load balancer controller | Complete |
 | 5 | ECR repositories and policies | Complete |
 | 6 | CI gates: tests, SonarQube, OWASP, Trivy, push | Complete |
-| 7 | Helm chart | Chart complete, live verification on the cluster in progress |
+| 7 | Helm chart | Complete, verified live on EKS (see below) |
 | 8 | GitOps with ArgoCD | Planned |
 | 9 | Observability: Prometheus and Grafana | Planned |
 | 10 | DNS and TLS | Planned |
@@ -742,6 +742,8 @@ Found a vulnerability? Please open a private security advisory on GitHub rather 
 | 14 | Progressive delivery | Planned |
 | 15 | Logs, traces and incidents | Planned |
 | 16 | FinOps and resilience | Planned |
+
+**Phase 7 live verification (EKS, ap-south-1):** all pods reached `Ready`; MongoDB's 2 Gi EBS volume bound through the EBS CSI driver; the ALB provisioned and its target went `healthy`; through the cluster the app registered a user, signed in, generated a diagram with the live provider in about 0.6 s, and saved it; deleting the MongoDB pod and letting the StatefulSet recreate it reattached the **same volume** with the saved diagram intact. Getting there surfaced three real cluster-level gaps, all now fixed in code: no default StorageClass, and two missing permissions in the load balancer controller's IAM policy (now the official policy for its version).
 
 Beyond the original roadmap, the product has grown a full enterprise feature set: accounts with export and delete, version history, share links, an audit log, tags and favourites, and a fully redesigned interface.
 
