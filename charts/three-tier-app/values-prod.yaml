@@ -1,7 +1,7 @@
 # More headroom, two replicas per stateless tier, autoscaling on.
 frontend:
   image:
-    tag: sha-36885c0
+    tag: sha-9682bfb
   replicaCount: 2
   resources:
     requests: { cpu: 100m, memory: 96Mi }
