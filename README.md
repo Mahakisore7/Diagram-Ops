@@ -750,6 +750,8 @@ Found a vulnerability? Please open a private security advisory on GitHub rather 
 
 **Phase 8 and 9 live verification (EKS, 2026-10-14):** one `kubectl apply` of `gitops/root-app.yaml` brought up four ArgoCD applications (`root-app`, `three-tier-app`, `monitoring`, `metrics-server`), all `Synced` and `Healthy`. `three-tier-app` deployed from the `gitops-deploy` branch using image tags that Jenkins recorded there after a green `main` build, with no manual `helm install`. Prometheus scraped both backend pods at `/metrics`, the four alert rules loaded without errors, and Grafana loaded the DiagramForge dashboard. Two defects only showed up live and are fixed in code: the public subnets lacked the `kubernetes.io/role/elb` tag (the load balancer controller found no subnets), and EKS ships without metrics-server (the HPA read `cpu: <unknown>` and the app showed `Degraded`). Four pipeline problems were also found and fixed along the way: the SonarQube new-code coverage gate (no report was imported), immutable ECR tags on a rebuild, a read-only GitHub token, and a narrow fetch refspec.
 
+<p align="center"><img src="docs/assets/screenshots/grafana-dashboard.png" alt="Grafana dashboard: request rate by status, latency percentiles, backend CPU and memory per pod" width="860"/><br/><sub><b>Grafana, live on EKS.</b> Request rate by status, p50/p95/p99 latency, and CPU and memory per backend pod, from the chart-provisioned dashboard.</sub></p>
+
 Beyond the original roadmap, the product has grown a full enterprise feature set: accounts with export and delete, version history, share links, an audit log, tags and favourites, and a fully redesigned interface.
 
 ## Documentation
