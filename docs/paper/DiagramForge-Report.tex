@@ -140,10 +140,12 @@ including a false-positive CVE caused by an NVD CPE vendor/product collision
 between the MongoDB server and its Node.js driver, and a class of image
 vulnerabilities caused by an unused \texttt{npm} CLI left in the runtime
 container. The report also records the first live deployment of the
-application to Amazon EKS through a Helm chart, including the three
-cluster-level gaps it exposed (a missing default storage class and two
-missing load-balancer IAM permissions) and the proof that database content
-survives deletion of the database pod.
+application to Amazon EKS through a Helm chart, including the cluster-level
+gaps it exposed (a missing default storage class, missing load-balancer IAM
+permissions, unlabelled subnets and an absent metrics server), the proof that
+database content survives deletion of the database pod, and the move to
+GitOps: ArgoCD reconciles the cluster from a Git branch that the pipeline
+updates, and Prometheus and Grafana report on the running service.
 \end{abstract}
 
 \tableofcontents
@@ -686,6 +688,22 @@ produces a rendered flowchart in a few seconds, and the library view.
 \label{fig:ui}
 \end{figure}
 
+Avatars deserve a note because they show a privacy-minded design choice.
+The profile page (Figure~\ref{fig:avatar}) offers four illustration styles,
+six candidate faces per page and a shuffle control. Only the recipe
+\texttt{\{style, seed\}} is stored on the user and validated against a fixed
+list on the server (\texttt{PATCH /auth/me}); the image itself is drawn in
+the browser by the DiceBear library. Nothing is uploaded, no image hosting
+is needed and no third-party avatar service is ever contacted, so the
+content security policy (\texttt{img-src 'self' data:}) needs no relaxation.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{../assets/screenshots/avatar-studio.png}
+\caption{Avatar studio on the profile page, captured from the live cluster}
+\label{fig:avatar}
+\end{figure}
+
 % =============================================================================
 \section{DevSecOps Pipeline and Infrastructure}
 \label{sec:devsecops}
@@ -745,7 +763,7 @@ independently, a failure skips every later stage, and workspace cleanup
     \node[gate]                                    (tv)   at (7.4,-4.65) {Trivy: HIGH or\\CRITICAL found?};
     \node[gate]                                    (mb)   at (7.4,-6.20) {Branch is\\\texttt{main}?};
     \node[box,fill=dataTier,minimum width=2.8cm]  (ecr)  at (7.4,-7.75) {Push to ECR\\tag \texttt{sha-<commit>}};
-    \node[box,fill=white,dashed,minimum width=2.8cm] (argo) at (7.4,-9.30) {ArgoCD sync to EKS\\(Phase 8, planned)};
+    \node[box,fill=infraTier,minimum width=2.8cm] (argo) at (7.4,-9.30) {Tag bump on \texttt{gitops-deploy}\\ArgoCD syncs to EKS};
     \node[box,fill=ciTier,minimum width=2.4cm]    (fsq)  at (11.1, 0.00) {FAIL: smells,\\bugs, coverage};
     \node[box,fill=ciTier,minimum width=2.4cm]    (fow)  at (11.1,-1.55) {FAIL: vulnerable\\dependency};
     \node[box,fill=ciTier,minimum width=2.4cm]    (ftv)  at (11.1,-4.65) {FAIL: vulnerable\\image layer};
@@ -861,9 +879,9 @@ and re-running Trivy to confirm zero findings.
 Figure~\ref{fig:deploy} shows where each component physically runs once
 deployment is complete. The Jenkins server, EKS cluster, and ECR
 repositories, together with the in-cluster workloads and the ALB routing
-(Phase~7), were built and verified live
-(Section~\ref{sec:liveverify}); GitOps-driven delivery arrives with
-Phase~8. A deliberate operational habit accompanies this
+(Phase~7), and GitOps-driven delivery with monitoring (Phases~8--9), were built
+and verified live (Sections~\ref{sec:liveverify} and~\ref{sec:gitopsverify}).
+A deliberate operational habit accompanies this
 architecture: the EKS cluster and its load
 balancer are torn down with \texttt{terraform destroy} at the end of each
 working session and rebuilt in roughly fifteen minutes at the start of the
@@ -1029,6 +1047,94 @@ summary line, fixed in code, and merged through a reviewed pull request; none
 required a manual change to a running system that was not then captured in
 the repository.
 
+\subsection{GitOps and Observability on the Live Cluster}
+\label{sec:gitopsverify}
+Phases~8 and~9 replaced the hand-run \texttt{helm install} with a pull-based
+model. A single object, the root Application, is applied once; it watches a
+folder of child Applications in Git, so the application, the monitoring stack
+and the metrics server all arrive through commits. Jenkins no longer deploys:
+after a green \texttt{main} build its last stage writes the new image tag into
+the production values on a dedicated \texttt{gitops-deploy} branch, which
+ArgoCD watches, so \texttt{main}'s review rules are untouched. The two
+pipelines may finish together, so the stage rebases and retries its push.
+
+The stack was brought up on a fresh cluster and checked:
+\begin{itemize}[nosep]
+    \item four ArgoCD applications (root, application, monitoring, metrics
+        server) reached \texttt{Synced} and \texttt{Healthy}; the application
+        deployed from \texttt{gitops-deploy} with the tags Jenkins had
+        recorded and no manual Helm command;
+    \item the backend exposes Prometheus metrics at \texttt{/metrics}, a
+        request-latency histogram labelled by route pattern so cardinality
+        stays bounded; the ingress forwards only to the frontend, so the
+        endpoint is not reachable from the internet. Prometheus scraped both
+        pods;
+    \item the four alert rules (5xx rate, p95 latency, no backend available,
+        MongoDB volume nearly full) loaded without errors, and the Grafana
+        dashboard defined in the chart was picked up automatically by the
+        Grafana sidecar (Figure~\ref{fig:grafana});
+    \item secrets stay out of Git: the application Secret is created out of
+        band by the bootstrap script from a git-ignored file, and the chart's
+        \texttt{secrets.create} switch tells ArgoCD not to own it.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{../assets/screenshots/grafana-dashboard.png}
+\caption{Grafana dashboard provisioned by the Helm chart, captured live:
+request rate by status, latency percentiles, and CPU and memory per backend
+pod}
+\label{fig:grafana}
+\end{figure}
+
+Again, the chart and manifests were correct on paper and two properties of the
+cluster were found only by running it, plus a set of pipeline problems found
+only by running the new stage for real (Table~\ref{tab:gaps2}):
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}L{2.8cm} L{3.7cm} Y@{}}
+\toprule
+\textbf{Gap} & \textbf{Symptom} & \textbf{Root cause and fix} \\
+\midrule
+Subnets not labelled for load balancers & Ingress without an address; controller:
+    ``subnets count less than minimal required'' & The public subnets lacked
+    the \texttt{kubernetes.io/role/elb} tag, a step done by hand in the
+    previous session and never recorded. Now tagged in Terraform; the plan is
+    a no-op on the live cluster. \\
+No metrics server & HPA showed \texttt{cpu: <unknown>}; ArgoCD reported the
+    application \texttt{Degraded} & EKS does not ship one. Added as an ArgoCD
+    application; the HPA then read the real CPU figure and the application
+    turned \texttt{Healthy}. \\
+SonarQube coverage gate & Gate failed on new-code coverage at 0\% & The new
+    \texttt{/metrics} code was the first genuinely new code the gate saw, and
+    no coverage report was imported. Jest now writes lcov and
+    \texttt{sonar-project.properties} points the scanner at it. \\
+Immutable ECR tags & Rebuilding a commit failed with ``tag is immutable'' and
+    skipped later stages & The push step now treats only that refusal as
+    success; the Jenkins role cannot describe images, so an existence check
+    was not an option. \\
+Token scope & 403 pushing the \texttt{gitops-deploy} branch & The Jenkins
+    GitHub token had read-only contents access; permission raised without
+    changing the token. \\
+Narrow clone refspec & Second pipeline's push rejected as non-fast-forward &
+    Jenkins fetches only the branch under test, so
+    \texttt{origin/gitops-deploy} never resolved and each run restarted from
+    \texttt{main}. Explicit refspecs fixed the lookup. \\
+\bottomrule
+\end{tabularx}
+\caption{Problems found by running the GitOps stack for real}
+\label{tab:gaps2}
+\end{table}
+
+Two security improvements came with the same work: the NVD and SonarQube
+tokens are no longer passed as command-line arguments (where the process list
+would show them) but through a private temporary properties file and the
+scanner's environment variable respectively. One property was not demonstrated:
+that ArgoCD reverts a manual change (self-heal) was configured but the test
+was not run in this session.
+
 % =============================================================================
 \section{Implementation Status}
 % =============================================================================
@@ -1036,7 +1142,7 @@ the repository.
 \subsection{Phase Roadmap}
 The project is executed as incremental phases, each with one concrete
 learning outcome (Table~\ref{tab:phases}). This report reflects the system
-after Phase~7, with Phases~0--7 complete and verified.
+after Phase~9, with Phases~0--9 complete and verified live.
 
 \begin{table}[H]
 \centering
@@ -1054,10 +1160,12 @@ after Phase~7, with Phases~0--7 complete and verified.
 5 & ECR & Private registries, immutable tags, lifecycle policies \\
 6 & CI gates & Jenkins pipelines, tests, SonarQube, OWASP
     Dependency-Check, Trivy (complete; all gates passing) \\
-\textbf{7} & \textbf{Helm} & \textbf{Templated manifests, probes, HPA,
-    StatefulSet (complete; verified live on EKS)} \\
-8 & GitOps & ArgoCD App-of-Apps, auto-sync, self-healing \\
-9 & Observability & Prometheus, Grafana, application metrics, alerts \\
+7 & Helm & Templated manifests, probes, HPA, StatefulSet (complete;
+    verified live on EKS) \\
+8 & GitOps & ArgoCD App-of-Apps, auto-sync, self-healing, tag bumps by the
+    pipeline (complete; verified live) \\
+\textbf{9} & \textbf{Observability} & \textbf{Prometheus, Grafana,
+    application metrics, alerts (complete; verified live)} \\
 10 & DNS and TLS & Route53, ACM certificates, HTTPS through the ALB \\
 11 & Persistence and backup & EBS CSI, S3 backups, restore testing \\
 12 & Security hardening & External Secrets, NetworkPolicy, RBAC, Pod
@@ -1099,6 +1207,9 @@ The following have been directly verified, not merely designed:
     \item A live deployment to Amazon EKS through the Helm chart, verified
         end to end including persistence across deletion of the database pod
         (Section~\ref{sec:liveverify}), then destroyed.
+    \item GitOps delivery through ArgoCD and live monitoring with Prometheus
+        and Grafana on the same cluster, verified and then destroyed
+        (Section~\ref{sec:gitopsverify}).
 \end{itemize}
 
 % =============================================================================
@@ -1206,11 +1317,10 @@ unrelated products sharing a vendor/product name in the NVD dictionary.
 The remaining phases (Table~\ref{tab:phases}) extend the platform toward a
 production-representative posture:
 \begin{itemize}[nosep]
-    \item \textbf{GitOps} (Phase~8): the Helm chart delivered through ArgoCD's
-        App-of-Apps pattern, removing the last manual deployment step.
-    \item \textbf{Observability} (Phase~9): Prometheus and Grafana
-        dashboards, with alerts derived from the SLOs in
-        Table~\ref{tab:nfr-summary}.
+    \item \textbf{Alert routing} (extends Phase~9): the four alert rules
+        evaluate correctly, but Alertmanager has no receiver yet; routing to
+        a channel and tying thresholds to the SLOs in
+        Table~\ref{tab:nfr-summary} follows with Phase~15.
     \item \textbf{TLS, backup, and hardening} (Phases~10--12): end-to-end
         HTTPS, restore-tested backups, Pod Security Standards, and
         NetworkPolicy enforcement.
@@ -1236,7 +1346,9 @@ report data rather than trusting a summary line, and each was resolved
 with a documented, individually justified fix. The first live deployment
 repeated the lesson at cluster scale: a chart that linted and installed
 cleanly still failed on three properties of the cluster, and each was found
-by reading the controller's own error and fixed in code. That discipline,
+by reading the controller's own error and fixed in code. Bringing up the
+GitOps stack repeated it a third time (unlabelled subnets, an absent metrics
+server, a read-only token). That discipline,
 more than any single tool choice, is the real subject of this report.
 
 % =============================================================================
