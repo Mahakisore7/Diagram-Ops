@@ -648,6 +648,84 @@ an inline error, and the page remains usable (\reqid{FR-D8}).
 \label{fig:state}
 \end{figure}
 
+\subsection{Backend Structure and Interaction Sequences}
+The backend is layered so that each concern has one home
+(Figure~\ref{fig:class}). Controllers translate HTTP into calls; services
+hold the rules (ownership, validation, the provider router with its cost
+guard); models own persistence. \texttt{LLMProvider} is an interface with
+two implementations, which is what lets the primary provider be swapped or
+fall back without the diagram service knowing which one answered.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{../assets/diagrams/class-backend.png}
+\caption{UML class diagram of the backend: controllers, services, provider
+abstraction and the models they touch}
+\label{fig:class}
+\end{figure}
+
+Figure~\ref{fig:seqgen} shows the one interaction that carries the product's
+main risk and cost: generation. The request is authenticated and
+rate-limited, the router tries the primary provider, and only on failure does
+the cost guard decide whether the paid fallback may be used; the result is
+validated as Mermaid before it is returned and nothing is saved until the user
+chooses to save. Figure~\ref{fig:seqshare} shows sharing, where an
+unguessable token, not the diagram identifier, is the public handle, and a
+revoked link simply stops resolving.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{../assets/diagrams/sequence-generate.png}
+\caption{Sequence: generating a diagram, with failover and the daily cost cap}
+\label{fig:seqgen}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\linewidth]{../assets/diagrams/sequence-share.png}
+\caption{Sequence: sharing a diagram through a revocable public link}
+\label{fig:seqshare}
+\end{figure}
+
+\subsection{REST API Summary}
+All routes live under \texttt{/api} and return one error envelope,
+\texttt{\{error: \{code, message\}\}}. A resource owned by someone else returns
+\texttt{404}, not \texttt{403}, so identifiers cannot be probed. Liveness and
+readiness (\texttt{/healthz}, \texttt{/readyz}) and the metrics endpoint sit
+outside \texttt{/api}.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}L{4.1cm} L{1.2cm} Y@{}}
+\toprule
+\textbf{Route} & \textbf{Auth} & \textbf{Purpose} \\
+\midrule
+POST /auth/register, /auth/login & no & Create an account; sign in and receive
+    a JWT \\
+GET, PATCH, DELETE /auth/me & yes & Profile; update name and avatar; delete the
+    account and its data \\
+GET /auth/me/export & yes & Download all of the user's data \\
+POST /auth/change-password & yes & Change password \\
+POST /diagrams/generate & yes & Generate Mermaid from text (does not save) \\
+POST, GET /diagrams & yes & Save a diagram; list with search, type, tag,
+    favourite, sort and paging \\
+GET /diagrams/stats & yes & Counts for the dashboard \\
+GET, PATCH, DELETE /diagrams/:id & yes & Read, edit (snapshots history),
+    delete \\
+GET /diagrams/:id/versions & yes & Version history \\
+POST /diagrams/:id/duplicate & yes & Duplicate \\
+POST, DELETE /diagrams/:id/share & yes & Create or revoke a public link \\
+GET /activity & yes & The user's audit log \\
+GET /provider-status & yes & Remaining paid-fallback budget \\
+GET /public/diagrams/:token & no & Read a shared diagram (separately rate
+    limited) \\
+\bottomrule
+\end{tabularx}
+\caption{REST API}
+\label{tab:api}
+\end{table}
+
 \subsection{Product Enhancements and User Interface}
 Beyond the minimal generate--render--save loop of the original scope, the
 application was extended to the feature set expected of a multi-user product:
@@ -1183,6 +1261,37 @@ after Phase~9, with Phases~0--9 complete and verified live.
 \label{tab:phases}
 \end{table}
 
+\subsection{Testing Strategy}
+Testing is layered so that a failure points at one kind of defect
+(Table~\ref{tab:tests}). The backend suite has 9 suites and 77 tests; the
+integration suite needs a real MongoDB, which is why the Jenkins test stage
+starts a throwaway container. Each pull request runs the same suite in GitHub
+Actions and again in Jenkins, and the SonarQube gate additionally judges the
+coverage of new code from the report the tests produce.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}L{2.6cm} Y@{}}
+\toprule
+\textbf{Level} & \textbf{What it covers} \\
+\midrule
+Unit & Cost guard, sticky retry, JSON extraction, rate limiting, provider
+    fallback and error mapping, authentication, ownership rules, metrics
+    endpoint \\
+Integration & The whole HTTP stack against a real MongoDB: authentication,
+    CRUD, versions, share links, activity log, account export and deletion \\
+Browser & Scripted runs through register, generate, save, share, library and
+    settings in light and dark themes and at phone width, used to produce the
+    screenshots in this report \\
+Pipeline & Tests, SonarQube quality gate, OWASP Dependency-Check and Trivy on
+    every build; the live cluster checks of Section~\ref{sec:liveverify} \\
+\bottomrule
+\end{tabularx}
+\caption{Test layers}
+\label{tab:tests}
+\end{table}
+
 \subsection{Verified Outcomes}
 The following have been directly verified, not merely designed:
 \begin{itemize}[nosep]
@@ -1312,6 +1421,35 @@ documented in detail: CPE-based vulnerability matching that conflates
 unrelated products sharing a vendor/product name in the NVD dictionary.
 
 % =============================================================================
+\section{Known Limitations}
+The system is honest about what it does not yet do (Table~\ref{tab:limits}).
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{@{}L{4.8cm} Y@{}}
+\toprule
+\textbf{Limitation} & \textbf{Plan or reason} \\
+\midrule
+Kubernetes Secrets are base64, not encrypted & External Secrets with AWS
+    Secrets Manager (Phase~12) \\
+No NetworkPolicy or Pod Security enforcement & Phase~12 \\
+MongoDB is a single member without authentication inside the cluster & Backup
+    and hardening (Phases~11--12); a replica set is a stated stretch goal \\
+HTTP only, no custom domain & Route~53 and ACM (Phase~10) \\
+Pods autoscale, nodes do not: the node group is a fixed size & A node
+    autoscaler such as Karpenter (Phase~16) \\
+The cluster exists only while a session runs & A deliberate cost decision; the
+    control plane bills whether or not traffic arrives \\
+ArgoCD self-heal configured but not demonstrated & Needs a short supervised
+    test on a running cluster \\
+SonarQube Community has one analysis timeline per project & Analysis runs on
+    \texttt{main} only \\
+\bottomrule
+\end{tabularx}
+\caption{Known limitations}
+\label{tab:limits}
+\end{table}
+
 \section{Future Work}
 % =============================================================================
 The remaining phases (Table~\ref{tab:phases}) extend the platform toward a
@@ -1352,6 +1490,13 @@ server, a read-only token). That discipline,
 more than any single tool choice, is the real subject of this report.
 
 % =============================================================================
+\section*{Acknowledgements}
+\addcontentsline{toc}{section}{Acknowledgements}
+This work was carried out by Team~D11 for the course 22AIE305, Introduction
+to Cloud Computing, at Amrita Vishwa Vidyapeetham, under the guidance of
+Dr.~Keerthika. The application builds on Mermaid, DiceBear, Groq and
+Anthropic Claude.
+
 \section*{References}
 \addcontentsline{toc}{section}{References}
 % =============================================================================
