@@ -15,6 +15,13 @@ module "vpc" {
   vpc_cidr            = "10.1.0.0/16"
   public_subnet_cidrs = ["10.1.1.0/24", "10.1.2.0/24"]
   azs                 = ["${var.aws_region}a", "${var.aws_region}b"]
+
+  # Without these the AWS Load Balancer Controller cannot discover subnets
+  # for an internet-facing ALB ("subnets count less than minimal required").
+  public_subnet_tags = {
+    "kubernetes.io/role/elb"                            = "1"
+    "kubernetes.io/cluster/${var.project_name}-cluster" = "shared"
+  }
 }
 
 # --- EKS cluster IAM role ---

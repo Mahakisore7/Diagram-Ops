@@ -16,7 +16,10 @@ resource "aws_subnet" "public" {
   cidr_block              = var.public_subnet_cidrs[count.index]
   availability_zone       = var.azs[count.index]
   map_public_ip_on_launch = true
-  tags                    = { Name = "${var.project_name}-public-${count.index}" }
+  tags = merge(
+    { Name = "${var.project_name}-public-${count.index}" },
+    var.public_subnet_tags,
+  )
 }
 
 resource "aws_route_table" "public" {
