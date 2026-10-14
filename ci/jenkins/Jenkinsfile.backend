@@ -131,7 +131,8 @@ pipeline {
                         printf '#!/bin/sh\\ncase "$1" in Username*) echo "$GIT_USER";; *) echo "$GIT_PASS";; esac\\n' > "$GIT_ASKPASS"
                         chmod 700 "$GIT_ASKPASS"
                         for attempt in 1 2 3; do
-                          git fetch origin main gitops-deploy || git fetch origin main
+                          git fetch origin +refs/heads/main:refs/remotes/origin/main
+                          git fetch origin +refs/heads/gitops-deploy:refs/remotes/origin/gitops-deploy || true
                           if git rev-parse -q --verify origin/gitops-deploy >/dev/null; then
                             git checkout -B gitops-deploy origin/gitops-deploy
                             git merge --no-edit origin/main
