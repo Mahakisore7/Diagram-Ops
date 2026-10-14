@@ -67,6 +67,9 @@ DiagramForge has two halves, and both are the point.
     <td width="50%"><img src="docs/assets/screenshots/library.png" alt="Diagram library with search and tags"/><br/><sub><b>Library.</b> Search, filter by type or tag, favourites, duplicates.</sub></td>
     <td width="50%"><img src="docs/assets/screenshots/dashboard-dark.png" alt="Dashboard in the dark blueprint theme"/><br/><sub><b>Dashboard, dark theme.</b> The same design in "cyanotype".</sub></td>
   </tr>
+  <tr>
+    <td colspan="2"><img src="docs/assets/screenshots/avatar-studio.png" alt="Settings, Profile: the avatar studio with four illustration styles"/><br/><sub><b>Avatar studio.</b> Four drawing styles (Sketch, Portrait, Peeps, Geometric), six candidates per page, shuffle for more. Only <code>{ style, seed }</code> is stored; the image is drawn in the browser, so nothing is uploaded or fetched from a third party.</sub></td>
+  </tr>
 </table>
 
 ## Features
@@ -733,8 +736,8 @@ Found a vulnerability? Please open a private security advisory on GitHub rather 
 | 5 | ECR repositories and policies | Complete |
 | 6 | CI gates: tests, SonarQube, OWASP, Trivy, push | Complete |
 | 7 | Helm chart | Complete, verified live on EKS (see below) |
-| 8 | GitOps with ArgoCD | Planned |
-| 9 | Observability: Prometheus and Grafana | Planned |
+| 8 | GitOps with ArgoCD | Complete, verified live on EKS (see below) |
+| 9 | Observability: Prometheus and Grafana | Complete, verified live on EKS (see below) |
 | 10 | DNS and TLS | Planned |
 | 11 | Persistence and backup | Planned |
 | 12 | Security hardening | Planned |
@@ -744,6 +747,10 @@ Found a vulnerability? Please open a private security advisory on GitHub rather 
 | 16 | FinOps and resilience | Planned |
 
 **Phase 7 live verification (EKS, ap-south-1):** all pods reached `Ready`; MongoDB's 2 Gi EBS volume bound through the EBS CSI driver; the ALB provisioned and its target went `healthy`; through the cluster the app registered a user, signed in, generated a diagram with the live provider in about 0.6 s, and saved it; deleting the MongoDB pod and letting the StatefulSet recreate it reattached the **same volume** with the saved diagram intact. Getting there surfaced three real cluster-level gaps, all now fixed in code: no default StorageClass, and two missing permissions in the load balancer controller's IAM policy (now the official policy for its version).
+
+**Phase 8 and 9 live verification (EKS, 2026-10-14):** one `kubectl apply` of `gitops/root-app.yaml` brought up four ArgoCD applications (`root-app`, `three-tier-app`, `monitoring`, `metrics-server`), all `Synced` and `Healthy`. `three-tier-app` deployed from the `gitops-deploy` branch using image tags that Jenkins recorded there after a green `main` build, with no manual `helm install`. Prometheus scraped both backend pods at `/metrics`, the four alert rules loaded without errors, and Grafana loaded the DiagramForge dashboard. Two defects only showed up live and are fixed in code: the public subnets lacked the `kubernetes.io/role/elb` tag (the load balancer controller found no subnets), and EKS ships without metrics-server (the HPA read `cpu: <unknown>` and the app showed `Degraded`). Four pipeline problems were also found and fixed along the way: the SonarQube new-code coverage gate (no report was imported), immutable ECR tags on a rebuild, a read-only GitHub token, and a narrow fetch refspec.
+
+<p align="center"><img src="docs/assets/screenshots/grafana-dashboard.png" alt="Grafana dashboard: request rate by status, latency percentiles, backend CPU and memory per pod" width="860"/><br/><sub><b>Grafana, live on EKS.</b> Request rate by status, p50/p95/p99 latency, and CPU and memory per backend pod, from the chart-provisioned dashboard.</sub></p>
 
 Beyond the original roadmap, the product has grown a full enterprise feature set: accounts with export and delete, version history, share links, an audit log, tags and favourites, and a fully redesigned interface.
 
